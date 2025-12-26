@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hutang Helper</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f8f9fa; padding-bottom: 80px; }
+        .app-header { background: #0d6efd; color: white; padding: 15px; border-radius: 0 0 20px 20px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .view-section { display: none; animation: fadeIn 0.3s; }
+        .active-view { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .card-debt { border: none; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 10px; }
+        .btn-float { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); z-index: 1000; }
+        .qr-preview { width: 100%; max-width: 250px; height: auto; border-radius: 10px; border: 2px solid #eee; }
+        .avatar { width: 40px; height: 40px; background-color: #e9ecef; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #0d6efd; }
+    </style>
+</head>
+<body>
+
+    <div class="container-fluid px-0">
+        
+        <div class="app-header d-flex justify-content-between align-items-center">
+            <h4 class="m-0 fw-bold"><i class="fa-solid fa-hand-holding-dollar me-2"></i>Hutang Helper</h4>
+            <button id="logoutBtn" class="btn btn-sm btn-outline-light d-none" onclick="app.logout()">Exit</button>
+        </div>
+
+        <div class="container">
+            
+            <div id="view-loading" class="view-section active-view text-center mt-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted">Loading System...</p>
+            </div>
+
+            <div id="view-login" class="view-section">
+                <div class="card p-4 shadow-sm border-0">
+                    <h5 class="mb-3">Welcome Back</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Who are you?</label>
+                        <select id="loginUserSelect" class="form-select mb-3">
+                            <option value="">Select your name...</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary w-100" onclick="app.login()">Enter App</button>
+                    
+                    <hr class="my-4">
+                    <div class="text-center">
+                        <small class="text-muted">Setting up for the first time?</small><br>
+                        <button class="btn btn-sm btn-outline-secondary mt-2" onclick="app.showAdminAuth()">Admin Setup</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-admin" class="view-section">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3>Admin Panel</h3>
+                    <button class="btn btn-secondary btn-sm" onclick="app.showLogin()">Back</button>
+                </div>
+
+                <div class="card mb-3 border-0 shadow-sm p-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="appLockSwitch" onchange="app.toggleLock()">
+                        <label class="form-check-label" for="appLockSwitch">Lock App (Maintenance Mode)</label>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm p-3">
+                    <h5>Manage Users</h5>
+                    <div class="input-group mb-2">
+                        <input type="text" id="newUserName" class="form-control" placeholder="Name">
+                        <input type="tel" id="newUserPhone" class="form-control" placeholder="Phone (e.g. 601234567)">
+                        <button class="btn btn-success" onclick="app.addUser()">Add</button>
+                    </div>
+                    <ul id="adminUserList" class="list-group list-group-flush mt-3">
+                        </ul>
+                </div>
+            </div>
+
+            <div id="view-dashboard" class="view-section">
+                <div class="text-center mb-4">
+                    <h2 id="dashWelcome">Hello!</h2>
+                    <p class="text-muted">What would you like to do?</p>
+                </div>
+                
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="card text-center p-4 border-0 shadow-sm h-100" onclick="app.goToMintaHutang()" style="cursor:pointer; background: #e7f1ff;">
+                            <i class="fa-solid fa-file-invoice-dollar fa-3x text-primary mb-3"></i>
+                            <h6>Minta Hutang</h6>
+                            <small class="text-muted">Manage your claims</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card text-center p-4 border-0 shadow-sm h-100" onclick="app.goToBayarHutang()" style="cursor:pointer; background: #e0f8e9;">
+                            <i class="fa-solid fa-money-bill-transfer fa-3x text-success mb-3"></i>
+                            <h6>Bayar Hutang</h6>
+                            <small class="text-muted">Pay what you owe</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-4 p-3 border-0 shadow-sm">
+                    <h6><i class="fa-solid fa-id-card me-2"></i>My Profile</h6>
+                    <div id="profileQrArea" class="text-center mt-2">
+                        </div>
+                    <div class="mt-3">
+                        <label class="form-label text-muted small">Update Payment QR (Optional)</label>
+                        <input type="file" id="qrUploadInput" class="form-control form-control-sm" accept="image/*" onchange="app.uploadQR()">
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-minta" class="view-section">
+                <div class="d-flex justify-content-between mb-3">
+                    <h5><i class="fa-solid fa-list me-2"></i>My Claims</h5>
+                    <button class="btn btn-sm btn-secondary" onclick="app.showDashboard()">Back</button>
+                </div>
+                
+                <div id="myClaimsList">
+                    </div>
+
+                <div class="text-center mt-5 text-muted" id="noClaimsMsg" style="display:none">
+                    <p>You haven't added any claims yet.</p>
+                </div>
+
+                <button class="btn btn-primary btn-float" onclick="app.showAddClaimModal()">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+            </div>
+
+            <div id="view-bayar" class="view-section">
+                <div class="d-flex justify-content-between mb-3">
+                    <h5><i class="fa-solid fa-wallet me-2"></i>Debts to Pay</h5>
+                    <button class="btn btn-sm btn-secondary" onclick="app.showDashboard()">Back</button>
+                </div>
+
+                <div id="debtsList">
+                    </div>
+                 <div class="text-center mt-5 text-muted" id="noDebtsMsg" style="display:none">
+                    <p>You are debt free! 🎉</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="modal fade" id="addClaimModal" tabindex="-1">
+        <div class="modal-dialog modal-fullscreen-sm-down">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Hutang</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Item/Event Name</label>
+                        <input type="text" id="claimName" class="form-control" placeholder="e.g. Dinner at McD">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date (Optional)</label>
+                        <input type="date" id="claimDate" class="form-control">
+                    </div>
+                    
+                    <hr>
+                    <h6>Split Costs</h6>
+                    <small class="text-muted d-block mb-3">Enter the base amount for each person.</small>
+                    
+                    <div id="claimUserInputs">
+                        </div>
+
+                    <div class="mt-3 p-3 bg-light rounded">
+                        <div class="mb-2 row">
+                            <label class="col-6 col-form-label">My Share (Self)</label>
+                            <div class="col-6">
+                                <input type="number" id="claimSelfAmount" class="form-control" placeholder="0" value="0">
+                            </div>
+                        </div>
+                        <div class="mb-2 row">
+                            <label class="col-6 col-form-label">Tax / Service (%)</label>
+                            <div class="col-6">
+                                <input type="number" id="claimTax" class="form-control" placeholder="0" value="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="app.submitClaim()">Save Hutang</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="payModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="payModalTitle">Pay User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <h2 class="text-success fw-bold my-3" id="payTotalDisplay">RM 0.00</h2>
+                    <div id="payQrDisplay" class="mb-3">
+                        </div>
+                    <p class="text-muted small">Scan the QR or use the phone number below.</p>
+                </div>
+                <div class="modal-footer flex-column">
+                    <button type="button" class="btn btn-success w-100 mb-2" id="btnWhatsappPay">
+                        <i class="fa-brands fa-whatsapp me-2"></i>Send "Dah Bayar"
+                    </button>
+                    <button type="button" class="btn btn-light w-100" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- FIREBASE SETUP ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getFirestore, collection, getDocs, addDoc, doc, updateDoc, onSnapshot, query, where, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyBd9E9VkE7bllIN13NYGz801F4Jue_VzVk",
+            authDomain: "im-helper-d3a4a.firebaseapp.com",
+            projectId: "im-helper-d3a4a",
+            storageBucket: "im-helper-d3a4a.firebasestorage.app",
+            messagingSenderId: "772636018512",
+            appId: "1:772636018512:web:24321bf201d8d48c6f4e55",
+            measurementId: "G-1VGR5GJR3V"
+        };
+
+        const firebaseApp = initializeApp(firebaseConfig);
+        const db = getFirestore(firebaseApp);
+
+        // --- APP STATE & VARIABLES ---
+        let currentUser = null;
+        let allUsers = [];
+        let isAppLocked = false;
+        let adminDocId = 'settings'; // We will use a doc in 'settings' collection for lock status
+
+        // --- APP LOGIC CLASS ---
+        class HutangApp {
+            constructor() {
+                this.init();
+            }
+
+            async init() {
+                this.listenToSettings();
+                this.listenToUsers();
+            }
+
+            // --- VIEW MANAGEMENT ---
+            showView(viewId) {
+                document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
+                document.getElementById(viewId).classList.add('active-view');
+                
+                const logoutBtn = document.getElementById('logoutBtn');
+                if(viewId === 'view-login' || viewId === 'view-loading') logoutBtn.classList.add('d-none');
+                else logoutBtn.classList.remove('d-none');
+            }
+
+            // --- ADMIN & SETUP ---
+            async listenToSettings() {
+                // Listen to lock status
+                const q = collection(db, "app_settings");
+                onSnapshot(q, (snapshot) => {
+                    if (snapshot.empty) {
+                        // Create default settings if not exist
+                        addDoc(collection(db, "app_settings"), { isLocked: false });
+                    } else {
+                        const data = snapshot.docs[0].data();
+                        isAppLocked = data.isLocked;
+                        this.adminDocRef = snapshot.docs[0].id;
+                        document.getElementById('appLockSwitch').checked = isAppLocked;
+                        
+                        // If locked and user is not admin (simple check), kick to login
+                        if(isAppLocked && currentUser) {
+                             alert("The app has been locked by Admin for maintenance.");
+                             this.logout();
+                        }
+                    }
+                });
+            }
+
+            listenToUsers() {
+                const q = query(collection(db, "users"), orderBy("name"));
+                onSnapshot(q, (snapshot) => {
+                    allUsers = [];
+                    const listContainer = document.getElementById('adminUserList');
+                    const selectContainer = document.getElementById('loginUserSelect');
+                    
+                    listContainer.innerHTML = '';
+                    selectContainer.innerHTML = '<option value="">Select your name...</option>';
+
+                    snapshot.forEach((doc) => {
+                        const u = { id: doc.id, ...doc.data() };
+                        allUsers.push(u);
+
+                        // Render Admin List
+                        listContainer.innerHTML += `
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div><strong>${u.name}</strong> <br><small>${u.phone}</small></div>
+                                <button class="btn btn-sm btn-outline-danger" onclick="window.app.deleteUser('${u.id}')"><i class="fa-solid fa-trash"></i></button>
+                            </li>
+                        `;
+
+                        // Render Login Select
+                        selectContainer.innerHTML += `<option value="${u.id}">${u.name}</option>`;
+                    });
+                    
+                    this.showView('view-login');
+                });
+            }
+
+            showAdminAuth() {
+                const pass = prompt("Enter Admin Password:");
+                if(pass === "admin123") { // Simple hardcoded password for prototype
+                    this.showView('view-admin');
+                } else {
+                    alert("Wrong password!");
+                }
+            }
+
+            async addUser() {
+                const name = document.getElementById('newUserName').value;
+                const phone = document.getElementById('newUserPhone').value;
+                if(!name || !phone) return alert("Please fill details");
+                
+                await addDoc(collection(db, "users"), {
+                    name: name,
+                    phone: phone,
+                    qrImage: "" // Base64 string
+                });
+                
+                document.getElementById('newUserName').value = '';
+                document.getElementById('newUserPhone').value = '';
+            }
+
+            async deleteUser(id) {
+                if(confirm("Delete user?")) {
+                    await deleteDoc(doc(db, "users", id));
+                }
+            }
+
+            async toggleLock() {
+                const isLocked = document.getElementById('appLockSwitch').checked;
+                if(this.adminDocRef) {
+                    await updateDoc(doc(db, "app_settings", this.adminDocRef), { isLocked: isLocked });
+                }
+            }
+
+            showLogin() {
+                this.showView('view-login');
+            }
+
+            // --- USER FLOW ---
+
+            login() {
+                const userId = document.getElementById('loginUserSelect').value;
+                if(!userId) return alert("Please select a name");
+                
+                if(isAppLocked) return alert("App is currently locked by Admin.");
+
+                currentUser = allUsers.find(u => u.id === userId);
+                this.showDashboard();
+            }
+
+            logout() {
+                currentUser = null;
+                this.showView('view-login');
+            }
+
+            showDashboard() {
+                document.getElementById('dashWelcome').innerText = `Hello, ${currentUser.name}!`;
+                this.renderProfileQR();
+                this.showView('view-dashboard');
+            }
+
+            renderProfileQR() {
+                const container = document.getElementById('profileQrArea');
+                if(currentUser.qrImage) {
+                    container.innerHTML = `<img src="${currentUser.qrImage}" class="qr-preview mb-2"><br><small class="text-success">QR Code Active</small>`;
+                } else {
+                    container.innerHTML = `<h5 class="text-primary">${currentUser.phone}</h5><small class="text-muted">No QR uploaded (Using Phone)</small>`;
+                }
+            }
+
+            uploadQR() {
+                const input = document.getElementById('qrUploadInput');
+                if (input.files && input.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        const base64 = e.target.result;
+                        await updateDoc(doc(db, "users", currentUser.id), { qrImage: base64 });
+                        currentUser.qrImage = base64; // local update
+                        this.renderProfileQR();
+                    };
+                    reader.readAsDataURL(input.files[0]);
+                }
+            }
+
+            // --- MINTA HUTANG (CLAIMS) ---
+
+            goToMintaHutang() {
+                this.loadMyClaims();
+                this.showView('view-minta');
+            }
+
+            async loadMyClaims() {
+                const list = document.getElementById('myClaimsList');
+                list.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm"></div> Loading...</div>';
+                
+                const q = query(collection(db, "claims"), where("createdBy", "==", currentUser.id), orderBy("date", "desc"));
+                const snapshot = await getDocs(q);
+                
+                list.innerHTML = '';
+                if(snapshot.empty) {
+                    document.getElementById('noClaimsMsg').style.display = 'block';
+                } else {
+                    document.getElementById('noClaimsMsg').style.display = 'none';
+                    snapshot.forEach(doc => {
+                        const d = doc.data();
+                        let debtorsHtml = '';
+                        d.debtors.forEach(debt => {
+                            if(debt.amount > 0) {
+                                debtorsHtml += `<span class="badge bg-light text-dark border me-1">${debt.name}: RM${debt.amount.toFixed(2)}</span>`;
+                            }
+                        });
+
+                        list.innerHTML += `
+                            <div class="card card-debt p-3">
+                                <div class="d-flex justify-content-between">
+                                    <h6 class="fw-bold">${d.itemName}</h6>
+                                    <small class="text-muted">${d.date}</small>
+                                </div>
+                                <div class="mt-2 mb-2">${debtorsHtml}</div>
+                                <div class="text-end border-top pt-2">
+                                    <small class="text-muted">Total:</small> <strong>RM ${d.totalWithTax.toFixed(2)}</strong>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            }
+
+            showAddClaimModal() {
+                // Populate users inputs
+                const container = document.getElementById('claimUserInputs');
+                container.innerHTML = '';
+                
+                // Default date to today
+                document.getElementById('claimDate').valueAsDate = new Date();
+                document.getElementById('claimName').value = '';
+                document.getElementById('claimSelfAmount').value = 0;
+                document.getElementById('claimTax').value = 0;
+
+                allUsers.forEach(u => {
+                    if(u.id !== currentUser.id) {
+                        container.innerHTML += `
+                            <div class="mb-2 row align-items-center">
+                                <label class="col-4 col-form-label text-truncate">${u.name}</label>
+                                <div class="col-8">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">RM</span>
+                                        <input type="number" class="form-control claim-amount-input" data-uid="${u.id}" data-uname="${u.name}" placeholder="0.00">
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+
+                new bootstrap.Modal(document.getElementById('addClaimModal')).show();
+            }
+
+            async submitClaim() {
+                const itemName = document.getElementById('claimName').value;
+                const date = document.getElementById('claimDate').value;
+                const taxPercent = parseFloat(document.getElementById('claimTax').value) || 0;
+                const selfAmount = parseFloat(document.getElementById('claimSelfAmount').value) || 0;
+
+                if(!itemName) return alert("Enter Item Name");
+
+                let debtors = [];
+                let totalBase = selfAmount;
+
+                // Loop inputs
+                document.querySelectorAll('.claim-amount-input').forEach(input => {
+                    const amt = parseFloat(input.value) || 0;
+                    if(amt > 0) {
+                        const finalAmt = amt + (amt * (taxPercent / 100));
+                        debtors.push({
+                            userId: input.dataset.uid,
+                            name: input.dataset.uname,
+                            amount: finalAmt
+                        });
+                        totalBase += amt;
+                    }
+                });
+
+                const totalWithTax = totalBase + (totalBase * (taxPercent / 100));
+
+                if(debtors.length === 0) return alert("Please add amount for at least one person.");
+
+                // Save to Firestore
+                await addDoc(collection(db, "claims"), {
+                    createdBy: currentUser.id,
+                    createdByName: currentUser.name,
+                    itemName: itemName,
+                    date: date,
+                    taxPercent: taxPercent,
+                    totalWithTax: totalWithTax,
+                    debtors: debtors, // Array of objects
+                    debtorIds: debtors.map(d => d.userId) // Helper for querying
+                });
+
+                bootstrap.Modal.getInstance(document.getElementById('addClaimModal')).hide();
+                this.loadMyClaims();
+            }
+
+            // --- BAYAR HUTANG (PAY) ---
+
+            async goToBayarHutang() {
+                this.showView('view-bayar');
+                const list = document.getElementById('debtsList');
+                list.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm"></div> Loading...</div>';
+
+                // Query all claims where currentUser is a debtor
+                // Note: Firestore array-contains allows checking if ID is in list
+                const q = query(collection(db, "claims"), where("debtorIds", "array-contains", currentUser.id), orderBy("date", "desc"));
+                const snapshot = await getDocs(q);
+
+                list.innerHTML = '';
+                
+                if(snapshot.empty) {
+                    document.getElementById('noDebtsMsg').style.display = 'block';
+                    return;
+                }
+                
+                document.getElementById('noDebtsMsg').style.display = 'none';
+
+                // Group by Creditor (User we owe money to)
+                let debtsByCreditor = {};
+
+                snapshot.forEach(doc => {
+                    const d = doc.data();
+                    const myDebt = d.debtors.find(x => x.userId === currentUser.id);
+                    
+                    if(!debtsByCreditor[d.createdBy]) {
+                        debtsByCreditor[d.createdBy] = {
+                            creditorName: d.createdByName,
+                            creditorId: d.createdBy,
+                            items: []
+                        };
+                    }
+
+                    debtsByCreditor[d.createdBy].items.push({
+                        itemName: d.itemName,
+                        date: d.date,
+                        amount: myDebt.amount
+                    });
+                });
+
+                // Render Groups
+                Object.values(debtsByCreditor).forEach(group => {
+                    let itemsHtml = '';
+                    group.items.forEach((item, index) => {
+                        itemsHtml += `
+                            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                                <div class="form-check">
+                                    <input class="form-check-input debt-check-${group.creditorId}" type="checkbox" value="${item.amount}" id="chk-${group.creditorId}-${index}">
+                                    <label class="form-check-label" for="chk-${group.creditorId}-${index}">
+                                        ${item.itemName} <br> <small class="text-muted">${item.date}</small>
+                                    </label>
+                                </div>
+                                <span class="fw-bold">RM ${item.amount.toFixed(2)}</span>
+                            </div>
+                        `;
+                    });
+
+                    list.innerHTML += `
+                        <div class="card p-3 mb-3 border-0 shadow-sm">
+                            <h6 class="text-primary fw-bold border-bottom pb-2 mb-0">
+                                <i class="fa-solid fa-user-circle me-1"></i> Owe to: ${group.creditorName}
+                            </h6>
+                            <div class="mb-3">
+                                ${itemsHtml}
+                            </div>
+                            <button class="btn btn-success w-100" onclick="app.openPayModal('${group.creditorId}')">
+                                Pay Selected
+                            </button>
+                        </div>
+                    `;
+                });
+            }
+
+            openPayModal(creditorId) {
+                // Calculate Total
+                const checkboxes = document.querySelectorAll(`.debt-check-${creditorId}:checked`);
+                if(checkboxes.length === 0) return alert("Please select at least one item to pay.");
+
+                let total = 0;
+                checkboxes.forEach(cb => total += parseFloat(cb.value));
+
+                const creditor = allUsers.find(u => u.id === creditorId);
+                
+                // Update Modal UI
+                document.getElementById('payTotalDisplay').innerText = `RM ${total.toFixed(2)}`;
+                const qrContainer = document.getElementById('payQrDisplay');
+                
+                if(creditor.qrImage) {
+                    qrContainer.innerHTML = `<img src="${creditor.qrImage}" class="qr-preview">`;
+                } else {
+                    qrContainer.innerHTML = `<h4>Phone: ${creditor.phone}</h4>`;
+                }
+
+                // WhatsApp Link
+                const msg = `Hi ${creditor.name}, I have paid RM ${total.toFixed(2)} via Hutang Helper app. Check receipt.`;
+                const cleanPhone = creditor.phone.replace(/[^0-9]/g, ''); // Basic cleaning
+                // Assuming Malaysia country code if not present, but usually user enters full. 
+                // Let's just use raw.
+                
+                document.getElementById('btnWhatsappPay').onclick = function() {
+                    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+                };
+
+                new bootstrap.Modal(document.getElementById('payModal')).show();
+            }
+
+        }
+
+        // Initialize App Globally
+        window.app = new HutangApp();
+
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
