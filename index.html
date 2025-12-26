@@ -6,6 +6,11 @@
     <title>Hutang Helper</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
+
     <style>
         body { background-color: #f8f9fa; padding-bottom: 80px; }
         .app-header { background: #0d6efd; color: white; padding: 15px; border-radius: 0 0 20px 20px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -15,7 +20,11 @@
         .card-debt { border: none; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 10px; }
         .btn-float { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); z-index: 1000; }
         .qr-preview { width: 100%; max-width: 250px; height: auto; border-radius: 10px; border: 2px solid #eee; }
-        .avatar { width: 40px; height: 40px; background-color: #e9ecef; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #0d6efd; }
+        
+        /* Split Table Styles */
+        .split-row { transition: all 0.2s; }
+        .split-row.inactive { opacity: 0.5; background: #f9f9f9; }
+        .form-control-xs { padding: 0.25rem 0.5rem; font-size: .875rem; }
     </style>
 </head>
 <body>
@@ -32,6 +41,7 @@
             <div id="view-loading" class="view-section active-view text-center mt-5">
                 <div class="spinner-border text-primary" role="status"></div>
                 <p class="mt-2 text-muted">Loading System...</p>
+                <div id="errorMsg" class="alert alert-danger mt-3 d-none"></div>
             </div>
 
             <div id="view-login" class="view-section">
@@ -147,43 +157,61 @@
     </div>
 
     <div class="modal fade" id="addClaimModal" tabindex="-1">
-        <div class="modal-dialog modal-fullscreen-sm-down">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header">
+                <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">Add New Hutang</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Item/Event Name</label>
-                        <input type="text" id="claimName" class="form-control" placeholder="e.g. Dinner at McD">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Date (Optional)</label>
-                        <input type="date" id="claimDate" class="form-control">
-                    </div>
-                    
-                    <hr>
-                    <h6>Split Costs</h6>
-                    <small class="text-muted d-block mb-3">Enter the base amount for each person.</small>
-                    
-                    <div id="claimUserInputs">
+                    <div class="row g-2 mb-3">
+                        <div class="col-8">
+                            <label class="form-label small fw-bold">Item Name</label>
+                            <input type="text" id="claimName" class="form-control" placeholder="e.g. Dinner">
                         </div>
+                        <div class="col-4">
+                            <label class="form-label small fw-bold">Date</label>
+                            <input type="date" id="claimDate" class="form-control">
+                        </div>
+                    </div>
 
-                    <div class="mt-3 p-3 bg-light rounded">
-                        <div class="mb-2 row">
-                            <label class="col-6 col-form-label">My Share (Self)</label>
+                    <div class="card bg-light border-0 p-3 mb-3">
+                        <div class="row g-2 align-items-end">
                             <div class="col-6">
-                                <input type="number" id="claimSelfAmount" class="form-control" placeholder="0" value="0">
+                                <label class="form-label fw-bold text-primary">Total Bill Amount</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">RM</span>
+                                    <input type="number" id="splitTotalInput" class="form-control fw-bold" placeholder="0.00" oninput="app.recalculateSplit('total')">
+                                </div>
                             </div>
-                        </div>
-                        <div class="mb-2 row">
-                            <label class="col-6 col-form-label">Tax / Service (%)</label>
                             <div class="col-6">
-                                <input type="number" id="claimTax" class="form-control" placeholder="0" value="0">
+                                <label class="form-label fw-bold">Tax/Service (%)</label>
+                                <input type="number" id="splitTaxInput" class="form-control" placeholder="0" value="0" oninput="app.recalculateSplit('tax')">
                             </div>
                         </div>
                     </div>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 5%">
+                                        <input type="checkbox" id="checkAllToggle" class="form-check-input" checked onchange="app.toggleAllUsers()">
+                                    </th>
+                                    <th style="width: 35%">Name</th>
+                                    <th style="width: 25%">Percent (%)</th>
+                                    <th style="width: 35%">Amount (RM)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="splitUserTable">
+                                </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="text-end text-muted small">
+                         <span id="splitSummaryText">Total: RM 0.00</span>
+                    </div>
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -216,11 +244,8 @@
         </div>
     </div>
 
-    <script type="module">
-        // --- FIREBASE SETUP ---
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-        import { getFirestore, collection, getDocs, addDoc, doc, updateDoc, onSnapshot, query, where, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
-        
+    <script>
+        // --- FIREBASE SETUP (COMPAT VERSION) ---
         const firebaseConfig = {
             apiKey: "AIzaSyBd9E9VkE7bllIN13NYGz801F4Jue_VzVk",
             authDomain: "im-helper-d3a4a.firebaseapp.com",
@@ -231,153 +256,418 @@
             measurementId: "G-1VGR5GJR3V"
         };
 
-        const firebaseApp = initializeApp(firebaseConfig);
-        const db = getFirestore(firebaseApp);
+        // Initialize Firebase
+        try {
+            firebase.initializeApp(firebaseConfig);
+            const db = firebase.firestore();
+            console.log("Firebase Initialized Successfully");
+            
+            // --- APP STATE ---
+            let currentUser = null;
+            let allUsers = [];
+            let isAppLocked = false;
+            let adminDocId = 'settings'; 
 
-        // --- APP STATE & VARIABLES ---
-        let currentUser = null;
-        let allUsers = [];
-        let isAppLocked = false;
-        let adminDocId = 'settings'; 
+            // --- APP LOGIC ---
+            class HutangApp {
+                constructor() {
+                    this.init();
+                }
 
-        // --- APP LOGIC CLASS ---
-        class HutangApp {
-            constructor() {
-                this.init();
-            }
+                init() {
+                    this.listenToSettings();
+                    this.listenToUsers();
+                }
 
-            async init() {
-                this.listenToSettings();
-                this.listenToUsers();
-            }
+                // --- NAVIGATION ---
+                showView(viewId) {
+                    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
+                    document.getElementById(viewId).classList.add('active-view');
+                    const logoutBtn = document.getElementById('logoutBtn');
+                    if(viewId === 'view-login' || viewId === 'view-loading') logoutBtn.classList.add('d-none');
+                    else logoutBtn.classList.remove('d-none');
+                }
 
-            // --- VIEW MANAGEMENT ---
-            showView(viewId) {
-                // If we are navigating, update the view
-                document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
-                document.getElementById(viewId).classList.add('active-view');
-                
-                const logoutBtn = document.getElementById('logoutBtn');
-                if(viewId === 'view-login' || viewId === 'view-loading') logoutBtn.classList.add('d-none');
-                else logoutBtn.classList.remove('d-none');
-            }
+                // --- DATA LISTENERS ---
+                listenToSettings() {
+                    db.collection("app_settings").onSnapshot((snapshot) => {
+                        if (snapshot.empty) {
+                            db.collection("app_settings").add({ isLocked: false });
+                        } else {
+                            const docData = snapshot.docs[0].data();
+                            isAppLocked = docData.isLocked;
+                            this.adminDocRef = snapshot.docs[0].id;
+                            document.getElementById('appLockSwitch').checked = isAppLocked;
+                            if(isAppLocked && currentUser) {
+                                alert("The app has been locked by Admin for maintenance.");
+                                this.logout();
+                            }
+                        }
+                    }, (error) => {
+                        console.error("Settings Error:", error);
+                        document.getElementById('errorMsg').innerText = "Error loading settings: " + error.message;
+                        document.getElementById('errorMsg').classList.remove('d-none');
+                    });
+                }
 
-            // --- ADMIN & SETUP ---
-            async listenToSettings() {
-                const q = collection(db, "app_settings");
-                onSnapshot(q, (snapshot) => {
-                    if (snapshot.empty) {
-                        addDoc(collection(db, "app_settings"), { isLocked: false });
-                    } else {
-                        const data = snapshot.docs[0].data();
-                        isAppLocked = data.isLocked;
-                        this.adminDocRef = snapshot.docs[0].id;
-                        document.getElementById('appLockSwitch').checked = isAppLocked;
+                listenToUsers() {
+                    db.collection("users").orderBy("name").onSnapshot((snapshot) => {
+                        allUsers = [];
+                        const listContainer = document.getElementById('adminUserList');
+                        const selectContainer = document.getElementById('loginUserSelect');
                         
-                        if(isAppLocked && currentUser) {
-                             alert("The app has been locked by Admin for maintenance.");
-                             this.logout();
+                        listContainer.innerHTML = '';
+                        selectContainer.innerHTML = '<option value="">Select your name...</option>';
+
+                        snapshot.forEach((doc) => {
+                            const u = { id: doc.id, ...doc.data() };
+                            allUsers.push(u);
+                            listContainer.innerHTML += `
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div><strong>${u.name}</strong> <br><small>${u.phone}</small></div>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="window.app.deleteUser('${u.id}')"><i class="fa-solid fa-trash"></i></button>
+                                </li>
+                            `;
+                            selectContainer.innerHTML += `<option value="${u.id}">${u.name}</option>`;
+                        });
+                        
+                        const currentView = document.querySelector('.active-view').id;
+                        if(currentView === 'view-loading') this.showView('view-login');
+                    }, (error) => {
+                         console.error("Users Error:", error);
+                         document.getElementById('errorMsg').innerText = "Error loading users: " + error.message;
+                         document.getElementById('errorMsg').classList.remove('d-none');
+                    });
+                }
+
+                // --- ADMIN FUNCTIONS ---
+                showAdminAuth() {
+                    const pass = prompt("Enter Admin Password:");
+                    if(pass === "admin123") this.showView('view-admin');
+                    else alert("Wrong password!");
+                }
+
+                addUser() {
+                    const name = document.getElementById('newUserName').value;
+                    const phone = document.getElementById('newUserPhone').value;
+                    if(!name || !phone) return alert("Please fill details");
+                    db.collection("users").add({ name: name, phone: phone, qrImage: "" });
+                    document.getElementById('newUserName').value = '';
+                    document.getElementById('newUserPhone').value = '';
+                }
+
+                deleteUser(id) {
+                    if(confirm("Delete user?")) db.collection("users").doc(id).delete();
+                }
+
+                toggleLock() {
+                    const isLocked = document.getElementById('appLockSwitch').checked;
+                    if(this.adminDocRef) db.collection("app_settings").doc(this.adminDocRef).update({ isLocked: isLocked });
+                }
+
+                showLogin() { this.showView('view-login'); }
+
+                // --- USER FUNCTIONS ---
+                login() {
+                    const userId = document.getElementById('loginUserSelect').value;
+                    if(!userId) return alert("Please select a name");
+                    if(isAppLocked) return alert("App is currently locked by Admin.");
+                    currentUser = allUsers.find(u => u.id === userId);
+                    this.showDashboard();
+                }
+
+                logout() { currentUser = null; this.showView('view-login'); }
+
+                showDashboard() {
+                    document.getElementById('dashWelcome').innerText = `Hello, ${currentUser.name}!`;
+                    this.renderProfileQR();
+                    this.showView('view-dashboard');
+                }
+
+                renderProfileQR() {
+                    const container = document.getElementById('profileQrArea');
+                    if(currentUser.qrImage) container.innerHTML = `<img src="${currentUser.qrImage}" class="qr-preview mb-2"><br><small class="text-success">QR Code Active</small>`;
+                    else container.innerHTML = `<h5 class="text-primary">${currentUser.phone}</h5><small class="text-muted">No QR uploaded (Using Phone)</small>`;
+                }
+
+                uploadQR() {
+                    const input = document.getElementById('qrUploadInput');
+                    if (input.files && input.files[0]) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const base64 = e.target.result;
+                            db.collection("users").doc(currentUser.id).update({ qrImage: base64 });
+                            currentUser.qrImage = base64; 
+                            this.renderProfileQR();
+                        };
+                        reader.readAsDataURL(input.files[0]);
+                    }
+                }
+
+                // --- MINTA HUTANG (CLAIMS) ---
+                goToMintaHutang() {
+                    this.loadMyClaims();
+                    this.showView('view-minta');
+                }
+
+                loadMyClaims() {
+                    const list = document.getElementById('myClaimsList');
+                    list.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm"></div> Loading...</div>';
+                    
+                    db.collection("claims")
+                      .where("createdBy", "==", currentUser.id)
+                      .orderBy("date", "desc")
+                      .get()
+                      .then((snapshot) => {
+                        list.innerHTML = '';
+                        if(snapshot.empty) document.getElementById('noClaimsMsg').style.display = 'block';
+                        else {
+                            document.getElementById('noClaimsMsg').style.display = 'none';
+                            snapshot.forEach(doc => {
+                                const d = doc.data();
+                                let debtorsHtml = '';
+                                d.debtors.forEach(debt => {
+                                    if(debt.amount > 0) debtorsHtml += `<span class="badge bg-light text-dark border me-1">${debt.name}: RM${debt.amount.toFixed(2)}</span>`;
+                                });
+                                list.innerHTML += `
+                                    <div class="card card-debt p-3">
+                                        <div class="d-flex justify-content-between">
+                                            <h6 class="fw-bold">${d.itemName}</h6>
+                                            <small class="text-muted">${d.date}</small>
+                                        </div>
+                                        <div class="mt-2 mb-2">${debtorsHtml}</div>
+                                        <div class="text-end border-top pt-2">
+                                            <small class="text-muted">Total:</small> <strong>RM ${d.totalWithTax.toFixed(2)}</strong>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        }
+                    });
+                }
+
+                // --- SPLIT LOGIC ---
+                showAddClaimModal() {
+                    document.getElementById('claimDate').valueAsDate = new Date();
+                    document.getElementById('claimName').value = '';
+                    document.getElementById('splitTotalInput').value = '';
+                    document.getElementById('splitTaxInput').value = 0;
+                    document.getElementById('checkAllToggle').checked = true;
+
+                    const tableBody = document.getElementById('splitUserTable');
+                    tableBody.innerHTML = '';
+
+                    let sortedUsers = allUsers.slice().sort((a,b) => {
+                        if(a.id === currentUser.id) return -1;
+                        if(b.id === currentUser.id) return 1;
+                        return a.name.localeCompare(b.name);
+                    });
+
+                    sortedUsers.forEach(u => {
+                        const isSelf = u.id === currentUser.id;
+                        const nameDisplay = isSelf ? `<strong>${u.name} (Me)</strong>` : u.name;
+                        const rowClass = isSelf ? "bg-light" : "";
+
+                        tableBody.innerHTML += `
+                            <tr class="split-row ${rowClass}" id="row-${u.id}">
+                                <td>
+                                    <input type="checkbox" class="form-check-input user-check" value="${u.id}" checked onchange="app.recalculateSplit('checkbox')">
+                                </td>
+                                <td>${nameDisplay}</td>
+                                <td>
+                                    <input type="number" class="form-control form-control-xs user-percent" id="pct-${u.id}" value="0" placeholder="%" oninput="app.recalculateSplit('percent', '${u.id}')">
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control form-control-xs user-amount" id="amt-${u.id}" value="0" placeholder="RM" oninput="app.recalculateSplit('amount', '${u.id}')">
+                                </td>
+                            </tr>
+                        `;
+                    });
+
+                    new bootstrap.Modal(document.getElementById('addClaimModal')).show();
+                }
+
+                toggleAllUsers() {
+                    const master = document.getElementById('checkAllToggle').checked;
+                    document.querySelectorAll('.user-check').forEach(cb => cb.checked = master);
+                    this.recalculateSplit('checkbox');
+                }
+
+                recalculateSplit(trigger, specificUserId) {
+                    const totalInput = parseFloat(document.getElementById('splitTotalInput').value) || 0;
+                    const checkboxes = document.querySelectorAll('.user-check');
+                    const activeCheckboxes = Array.from(checkboxes).filter(cb => cb.checked);
+                    
+                    checkboxes.forEach(cb => {
+                        const row = document.getElementById(`row-${cb.value}`);
+                        const inputs = row.querySelectorAll('input[type="number"]');
+                        if(cb.checked) {
+                            row.classList.remove('inactive');
+                            inputs.forEach(i => i.disabled = false);
+                        } else {
+                            row.classList.add('inactive');
+                            inputs.forEach(i => { i.value = 0; i.disabled = true; });
+                        }
+                    });
+
+                    if(activeCheckboxes.length === 0) return;
+
+                    if (trigger === 'total' || trigger === 'checkbox' || trigger === 'tax') {
+                        const splitAmount = totalInput / activeCheckboxes.length;
+                        const splitPercent = 100 / activeCheckboxes.length;
+                        activeCheckboxes.forEach(cb => {
+                            document.getElementById(`amt-${cb.value}`).value = splitAmount.toFixed(2);
+                            document.getElementById(`pct-${cb.value}`).value = splitPercent.toFixed(1);
+                        });
+                    } 
+                    else if (trigger === 'percent' && specificUserId) {
+                        const pct = parseFloat(document.getElementById(`pct-${specificUserId}`).value) || 0;
+                        const newAmt = totalInput * (pct / 100);
+                        document.getElementById(`amt-${specificUserId}`).value = newAmt.toFixed(2);
+                    }
+                    else if (trigger === 'amount' && specificUserId) {
+                        let currentSum = 0;
+                        activeCheckboxes.forEach(cb => {
+                            currentSum += parseFloat(document.getElementById(`amt-${cb.value}`).value) || 0;
+                        });
+                        document.getElementById('splitTotalInput').value = currentSum.toFixed(2);
+                        if(currentSum > 0) {
+                            activeCheckboxes.forEach(cb => {
+                                const val = parseFloat(document.getElementById(`amt-${cb.value}`).value) || 0;
+                                const newPct = (val / currentSum) * 100;
+                                document.getElementById(`pct-${cb.value}`).value = newPct.toFixed(1);
+                            });
                         }
                     }
-                });
-            }
+                }
 
-            listenToUsers() {
-                const q = query(collection(db, "users"), orderBy("name"));
-                onSnapshot(q, (snapshot) => {
-                    allUsers = [];
-                    const listContainer = document.getElementById('adminUserList');
-                    const selectContainer = document.getElementById('loginUserSelect');
+                submitClaim() {
+                    const itemName = document.getElementById('claimName').value;
+                    const date = document.getElementById('claimDate').value;
+                    const taxPercent = parseFloat(document.getElementById('splitTaxInput').value) || 0;
                     
-                    listContainer.innerHTML = '';
-                    selectContainer.innerHTML = '<option value="">Select your name...</option>';
+                    if(!itemName) return alert("Enter Item Name");
 
-                    snapshot.forEach((doc) => {
-                        const u = { id: doc.id, ...doc.data() };
-                        allUsers.push(u);
+                    let debtors = [];
+                    let totalBase = 0;
+                    let selfBase = 0;
+                    const checkboxes = document.querySelectorAll('.user-check:checked');
+                    if(checkboxes.length === 0) return alert("Select at least one person.");
 
-                        // Render Admin List
-                        listContainer.innerHTML += `
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div><strong>${u.name}</strong> <br><small>${u.phone}</small></div>
-                                <button class="btn btn-sm btn-outline-danger" onclick="window.app.deleteUser('${u.id}')"><i class="fa-solid fa-trash"></i></button>
-                            </li>
-                        `;
+                    checkboxes.forEach(cb => {
+                        const uid = cb.value;
+                        const amt = parseFloat(document.getElementById(`amt-${uid}`).value) || 0;
+                        const finalAmt = amt + (amt * (taxPercent / 100));
 
-                        // Render Login Select
-                        selectContainer.innerHTML += `<option value="${u.id}">${u.name}</option>`;
+                        if(uid === currentUser.id) selfBase += finalAmt;
+                        else {
+                            const uName = allUsers.find(u => u.id === uid).name;
+                            debtors.push({ userId: uid, name: uName, amount: finalAmt });
+                        }
+                        totalBase += finalAmt;
                     });
+
+                    const finalTotal = debtors.reduce((acc, curr) => acc + curr.amount, 0) + selfBase;
+
+                    db.collection("claims").add({
+                        createdBy: currentUser.id,
+                        createdByName: currentUser.name,
+                        itemName: itemName,
+                        date: date,
+                        taxPercent: taxPercent,
+                        totalWithTax: finalTotal,
+                        debtors: debtors,
+                        debtorIds: debtors.map(d => d.userId)
+                    }).then(() => {
+                        bootstrap.Modal.getInstance(document.getElementById('addClaimModal')).hide();
+                        this.loadMyClaims();
+                    });
+                }
+
+                // --- BAYAR HUTANG ---
+                goToBayarHutang() {
+                    this.showView('view-bayar');
+                    const list = document.getElementById('debtsList');
+                    list.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm"></div> Loading...</div>';
+
+                    db.collection("claims")
+                      .where("debtorIds", "array-contains", currentUser.id)
+                      .orderBy("date", "desc")
+                      .get()
+                      .then((snapshot) => {
+                        list.innerHTML = '';
+                        if(snapshot.empty) {
+                            document.getElementById('noDebtsMsg').style.display = 'block';
+                            return;
+                        }
+                        document.getElementById('noDebtsMsg').style.display = 'none';
+
+                        let debtsByCreditor = {};
+                        snapshot.forEach(doc => {
+                            const d = doc.data();
+                            const myDebt = d.debtors.find(x => x.userId === currentUser.id);
+                            if(!debtsByCreditor[d.createdBy]) {
+                                debtsByCreditor[d.createdBy] = { creditorName: d.createdByName, creditorId: d.createdBy, items: [] };
+                            }
+                            debtsByCreditor[d.createdBy].items.push({ itemName: d.itemName, date: d.date, amount: myDebt.amount });
+                        });
+
+                        Object.values(debtsByCreditor).forEach(group => {
+                            let itemsHtml = '';
+                            group.items.forEach((item, index) => {
+                                itemsHtml += `
+                                    <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input debt-check-${group.creditorId}" type="checkbox" value="${item.amount}" id="chk-${group.creditorId}-${index}">
+                                            <label class="form-check-label" for="chk-${group.creditorId}-${index}">
+                                                ${item.itemName} <br> <small class="text-muted">${item.date}</small>
+                                            </label>
+                                        </div>
+                                        <span class="fw-bold">RM ${item.amount.toFixed(2)}</span>
+                                    </div>
+                                `;
+                            });
+                            list.innerHTML += `
+                                <div class="card p-3 mb-3 border-0 shadow-sm">
+                                    <h6 class="text-primary fw-bold border-bottom pb-2 mb-0"><i class="fa-solid fa-user-circle me-1"></i> Owe to: ${group.creditorName}</h6>
+                                    <div class="mb-3">${itemsHtml}</div>
+                                    <button class="btn btn-success w-100" onclick="app.openPayModal('${group.creditorId}')">Pay Selected</button>
+                                </div>
+                            `;
+                        });
+                    });
+                }
+
+                openPayModal(creditorId) {
+                    const checkboxes = document.querySelectorAll(`.debt-check-${creditorId}:checked`);
+                    if(checkboxes.length === 0) return alert("Please select at least one item to pay.");
+                    let total = 0;
+                    checkboxes.forEach(cb => total += parseFloat(cb.value));
+                    const creditor = allUsers.find(u => u.id === creditorId);
                     
-                    // --- FIX: Prevent Refreshing if in Admin Mode ---
-                    const currentView = document.querySelector('.active-view').id;
-                    if(currentView === 'view-loading') {
-                        // Only switch to login if we are currently loading
-                        this.showView('view-login');
-                    }
-                    // If we are in view-admin, we DO NOTHING (list updates automatically above)
-                });
-            }
+                    document.getElementById('payTotalDisplay').innerText = `RM ${total.toFixed(2)}`;
+                    const qrContainer = document.getElementById('payQrDisplay');
+                    if(creditor.qrImage) qrContainer.innerHTML = `<img src="${creditor.qrImage}" class="qr-preview">`;
+                    else qrContainer.innerHTML = `<h4>Phone: ${creditor.phone}</h4>`;
 
-            showAdminAuth() {
-                const pass = prompt("Enter Admin Password:");
-                if(pass === "admin123") { 
-                    this.showView('view-admin');
-                } else {
-                    alert("Wrong password!");
+                    const msg = `Hi ${creditor.name}, I have paid RM ${total.toFixed(2)} via Hutang Helper app. Check receipt.`;
+                    const cleanPhone = creditor.phone.replace(/[^0-9]/g, ''); 
+                    document.getElementById('btnWhatsappPay').onclick = function() {
+                        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+                    };
+                    new bootstrap.Modal(document.getElementById('payModal')).show();
                 }
             }
 
-            async addUser() {
-                const name = document.getElementById('newUserName').value;
-                const phone = document.getElementById('newUserPhone').value;
-                if(!name || !phone) return alert("Please fill details");
-                
-                // Add to DB (this triggers onSnapshot automatically)
-                await addDoc(collection(db, "users"), {
-                    name: name,
-                    phone: phone,
-                    qrImage: "" 
-                });
-                
-                // Clear inputs for next user
-                document.getElementById('newUserName').value = '';
-                document.getElementById('newUserPhone').value = '';
-                document.getElementById('newUserName').focus();
-            }
+            // Start App
+            window.app = new HutangApp();
 
-            async deleteUser(id) {
-                if(confirm("Delete user?")) {
-                    await deleteDoc(doc(db, "users", id));
-                }
-            }
-
-            async toggleLock() {
-                const isLocked = document.getElementById('appLockSwitch').checked;
-                if(this.adminDocRef) {
-                    await updateDoc(doc(db, "app_settings", this.adminDocRef), { isLocked: isLocked });
-                }
-            }
-
-            showLogin() {
-                this.showView('view-login');
-            }
-
-            // --- USER FLOW ---
-
-            login() {
-                const userId = document.getElementById('loginUserSelect').value;
-                if(!userId) return alert("Please select a name");
-                
-                if(isAppLocked) return alert("App is currently locked by Admin.");
-
-                currentUser = allUsers.find(u => u.id === userId);
-                this.showDashboard();
-            }
-
-            logout() {
-                currentUser = null;
-                this.showView('view-login');
-            }
-
-            showDashboard() {
-                document.getElementById('dashWelcome').innerText =
+        } catch (e) {
+            console.error("Critical Init Error:", e);
+            document.getElementById('errorMsg').innerText = "System Error: " + e.message;
+            document.getElementById('errorMsg').classList.remove('d-none');
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
