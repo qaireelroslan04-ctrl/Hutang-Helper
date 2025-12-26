@@ -20,8 +20,6 @@
         .card-debt { border: none; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 10px; }
         .btn-float { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); z-index: 1000; }
         .qr-preview { width: 100%; max-width: 250px; height: auto; border-radius: 10px; border: 2px solid #eee; }
-        
-        /* Receipt Styles */
         .receipt-item { font-size: 0.9rem; border-bottom: 1px dashed #ddd; padding: 8px 0; }
         .user-tag { font-size: 0.7rem; background: #eef; color: #444; padding: 2px 6px; border-radius: 4px; margin-right: 2px; display: inline-block; }
     </style>
@@ -280,7 +278,6 @@
     </div>
 
     <script>
-        // --- FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyBd9E9VkE7bllIN13NYGz801F4Jue_VzVk",
             authDomain: "im-helper-d3a4a.firebaseapp.com",
@@ -295,15 +292,9 @@
             firebase.initializeApp(firebaseConfig);
             const db = firebase.firestore();
             
-            // --- APP LOGIC ---
             class HutangApp {
                 constructor() {
-                    this.state = {
-                        user: null,
-                        allUsers: [],
-                        isLocked: false,
-                        tempItems: [] // Holds items being added to receipt
-                    };
+                    this.state = { user: null, allUsers: [], isLocked: false, tempItems: [] };
                     this.init();
                 }
 
@@ -312,7 +303,6 @@
                     this.listenToUsers();
                 }
 
-                // --- NAVIGATION & AUTH ---
                 showView(viewId) {
                     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
                     document.getElementById(viewId).classList.add('active-view');
@@ -320,6 +310,8 @@
                     if(viewId === 'view-login' || viewId === 'view-loading') logoutBtn.classList.add('d-none');
                     else logoutBtn.classList.remove('d-none');
                 }
+                
+                showDashboard() { this.showView('view-dashboard'); }
 
                 listenToSettings() {
                     db.collection("app_settings").onSnapshot((snap) => {
@@ -336,22 +328,14 @@
                         this.state.allUsers = [];
                         const list = document.getElementById('adminUserList');
                         const select = document.getElementById('loginUserSelect');
-                        
                         list.innerHTML = '';
                         select.innerHTML = '<option value="">Select your name...</option>';
-
                         snap.forEach((doc) => {
                             const u = { id: doc.id, ...doc.data() };
                             this.state.allUsers.push(u);
-                            list.innerHTML += `
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div><strong>${u.name}</strong> <br><small>${u.phone}</small></div>
-                                    <button class="btn btn-sm btn-outline-danger" onclick="app.deleteUser('${u.id}')"><i class="fa-solid fa-trash"></i></button>
-                                </li>
-                            `;
+                            list.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center"><div><strong>${u.name}</strong> <br><small>${u.phone}</small></div><button class="btn btn-sm btn-outline-danger" onclick="app.deleteUser('${u.id}')"><i class="fa-solid fa-trash"></i></button></li>`;
                             select.innerHTML += `<option value="${u.id}">${u.name}</option>`;
                         });
-
                         if(document.querySelector('.active-view').id === 'view-loading') this.showView('view-login');
                     });
                 }
@@ -367,12 +351,7 @@
                 }
 
                 logout() { this.state.user = null; this.showView('view-login'); }
-
-                // --- ADMIN ---
-                showAdminAuth() {
-                    if(prompt("Password:") === "admin123") this.showView('view-admin');
-                    else alert("Wrong");
-                }
+                showAdminAuth() { if(prompt("Password:") === "admin123") this.showView('view-admin'); else alert("Wrong"); }
                 addUser() {
                     const name = document.getElementById('newUserName').value;
                     const phone = document.getElementById('newUserPhone').value;
@@ -383,15 +362,9 @@
                     }
                 }
                 deleteUser(id) { if(confirm("Delete?")) db.collection("users").doc(id).delete(); }
-                toggleLock() { 
-                    db.collection("app_settings").get().then(snap => {
-                        const id = snap.docs[0].id;
-                        db.collection("app_settings").doc(id).update({ isLocked: document.getElementById('appLockSwitch').checked });
-                    });
-                }
+                toggleLock() { db.collection("app_settings").get().then(snap => { db.collection("app_settings").doc(snap.docs[0].id).update({ isLocked: document.getElementById('appLockSwitch').checked }); }); }
                 showLogin() { this.showView('view-login'); }
 
-                // --- QR PROFILE ---
                 renderProfileQR() {
                     const div = document.getElementById('profileQrArea');
                     if(this.state.user.qrImage) div.innerHTML = `<img src="${this.state.user.qrImage}" class="qr-preview mb-2"><br><small class="text-success">QR Active</small>`;
@@ -410,7 +383,6 @@
                     }
                 }
 
-                // --- RECEIPT BUILDER (NEW LOGIC) ---
                 showReceiptBuilder() {
                     this.state.tempItems = [];
                     document.getElementById('receiptName').value = "";
@@ -419,35 +391,19 @@
                     document.getElementById('newItemName').value = "";
                     document.getElementById('newItemPrice').value = "";
                     
-                    // Generate User Checkboxes for "Add Item"
                     const container = document.getElementById('newItemUsers');
-                    container.innerHTML = `
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="checkbox" id="checkAllItems" onchange="app.toggleAllItemUsers(this)">
-                            <label class="form-check-label small fw-bold" for="checkAllItems">All</label>
-                        </div>
-                    `;
+                    container.innerHTML = `<div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="checkAllItems" onchange="app.toggleAllItemUsers(this)"><label class="form-check-label small fw-bold" for="checkAllItems">All</label></div>`;
                     
-                    // Sort: Self first, then others
                     const sorted = [...this.state.allUsers].sort((a,b) => (a.id === this.state.user.id ? -1 : 1));
-
                     sorted.forEach(u => {
                         const isSelf = u.id === this.state.user.id;
-                        container.innerHTML += `
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input item-user-check" type="checkbox" value="${u.id}" id="u-${u.id}">
-                                <label class="form-check-label small" for="u-${u.id}">${isSelf ? 'Me' : u.name}</label>
-                            </div>
-                        `;
+                        container.innerHTML += `<div class="form-check form-check-inline"><input class="form-check-input item-user-check" type="checkbox" value="${u.id}" id="u-${u.id}"><label class="form-check-label small" for="u-${u.id}">${isSelf ? 'Me' : u.name}</label></div>`;
                     });
-
                     this.renderReceiptItems();
                     new bootstrap.Modal(document.getElementById('receiptModal')).show();
                 }
 
-                toggleAllItemUsers(master) {
-                    document.querySelectorAll('.item-user-check').forEach(cb => cb.checked = master.checked);
-                }
+                toggleAllItemUsers(master) { document.querySelectorAll('.item-user-check').forEach(cb => cb.checked = master.checked); }
 
                 addItemToReceipt() {
                     const name = document.getElementById('newItemName').value;
@@ -458,21 +414,13 @@
                     if(checkboxes.length === 0) return alert("Select who shared this item");
 
                     const involved = Array.from(checkboxes).map(cb => cb.value);
+                    this.state.tempItems.push({ id: Date.now(), name, price, involved });
                     
-                    this.state.tempItems.push({
-                        id: Date.now(), // simple unique id
-                        name,
-                        price,
-                        involved
-                    });
-
-                    // Reset Inputs
                     document.getElementById('newItemName').value = "";
                     document.getElementById('newItemPrice').value = "";
                     document.getElementById('checkAllItems').checked = false;
                     document.querySelectorAll('.item-user-check').forEach(cb => cb.checked = false);
                     document.getElementById('newItemName').focus();
-
                     this.renderReceiptItems();
                 }
 
@@ -484,32 +432,16 @@
                 renderReceiptItems() {
                     const list = document.getElementById('receiptItemsList');
                     list.innerHTML = "";
+                    if(this.state.tempItems.length === 0) list.innerHTML = `<div class="text-center text-muted small py-3">No items added yet.</div>`;
                     
-                    if(this.state.tempItems.length === 0) {
-                        list.innerHTML = `<div class="text-center text-muted small py-3">No items added yet.</div>`;
-                    }
-
                     this.state.tempItems.forEach(item => {
-                        // Create user tags string
                         let tags = item.involved.map(uid => {
                             const u = this.state.allUsers.find(x => x.id === uid);
                             return u ? `<span class="user-tag">${u.name}</span>` : '';
                         }).join("");
 
-                        list.innerHTML += `
-                            <div class="receipt-item d-flex justify-content-between align-items-center">
-                                <div style="width: 70%">
-                                    <div class="fw-bold">${item.name}</div>
-                                    <div>${tags}</div>
-                                </div>
-                                <div class="text-end">
-                                    <div class="fw-bold">RM ${item.price.toFixed(2)}</div>
-                                    <button class="btn btn-link text-danger p-0" style="font-size:0.8rem" onclick="app.deleteReceiptItem(${item.id})">Remove</button>
-                                </div>
-                            </div>
-                        `;
+                        list.innerHTML += `<div class="receipt-item d-flex justify-content-between align-items-center"><div style="width: 70%"><div class="fw-bold">${item.name}</div><div>${tags}</div></div><div class="text-end"><div class="fw-bold">RM ${item.price.toFixed(2)}</div><button class="btn btn-link text-danger p-0" style="font-size:0.8rem" onclick="app.deleteReceiptItem(${item.id})">Remove</button></div></div>`;
                     });
-
                     this.calculateReceiptTotal();
                 }
 
@@ -519,10 +451,7 @@
                     let total = subtotal + (subtotal * taxPercent / 100);
 
                     document.getElementById('receiptGrandTotal').innerText = `Total: RM ${total.toFixed(2)}`;
-
-                    // Calculate Breakdown for Preview
-                    let breakdown = {}; // uid -> amount
-                    
+                    let breakdown = {}; 
                     this.state.tempItems.forEach(item => {
                         const splitPrice = item.price / item.involved.length;
                         item.involved.forEach(uid => {
@@ -530,22 +459,13 @@
                             breakdown[uid] += splitPrice;
                         });
                     });
-
                     const summaryList = document.getElementById('receiptBreakdown');
                     summaryList.innerHTML = "";
-                    
                     Object.keys(breakdown).forEach(uid => {
                         const baseAmt = breakdown[uid];
                         const finalAmt = baseAmt + (baseAmt * taxPercent / 100);
                         const user = this.state.allUsers.find(u => u.id === uid);
-                        if(user) {
-                            summaryList.innerHTML += `
-                                <li class="list-group-item d-flex justify-content-between px-0 py-1 bg-transparent">
-                                    <span>${user.name}</span>
-                                    <span>RM ${finalAmt.toFixed(2)}</span>
-                                </li>
-                            `;
-                        }
+                        if(user) summaryList.innerHTML += `<li class="list-group-item d-flex justify-content-between px-0 py-1 bg-transparent"><span>${user.name}</span><span>RM ${finalAmt.toFixed(2)}</span></li>`;
                     });
                 }
 
@@ -557,11 +477,8 @@
                     if(this.state.tempItems.length === 0) return alert("Add at least one item.");
                     if(!receiptName) return alert("Enter Event Name");
 
-                    // Prepare Data
-                    let debtors = []; // Summary array for querying
+                    let debtors = [];
                     let breakdown = {};
-
-                    // Calculation logic identical to preview
                     this.state.tempItems.forEach(item => {
                         const splitPrice = item.price / item.involved.length;
                         item.involved.forEach(uid => {
@@ -575,72 +492,62 @@
                         const amt = breakdown[uid];
                         const finalAmt = amt + (amt * taxPercent / 100);
                         totalBill += finalAmt;
-
                         if(uid !== this.state.user.id) {
                             const u = this.state.allUsers.find(x => x.id === uid);
                             if(u) debtors.push({ userId: uid, name: u.name, amount: finalAmt });
                         }
                     });
 
-                    // We store the full item list for later viewing
                     db.collection("claims").add({
                         createdBy: this.state.user.id,
                         createdByName: this.state.user.name,
-                        itemName: receiptName, // Generic name
+                        itemName: receiptName,
                         date: date,
                         taxPercent: taxPercent,
                         totalWithTax: totalBill,
-                        items: this.state.tempItems, // NEW: Store granular items
+                        items: this.state.tempItems,
                         debtors: debtors,
                         debtorIds: debtors.map(d => d.userId)
                     }).then(() => {
                         bootstrap.Modal.getInstance(document.getElementById('receiptModal')).hide();
                         this.loadMyClaims();
+                        this.showView('view-minta'); // Ensure view switch
                     });
                 }
 
-                // --- CLAIMS LIST ---
-                goToMintaHutang() {
-                    this.showView('view-minta');
-                    this.loadMyClaims();
-                }
+                goToMintaHutang() { this.showView('view-minta'); this.loadMyClaims(); }
 
                 loadMyClaims() {
                     const list = document.getElementById('myClaimsList');
                     list.innerHTML = '<div class="spinner-border text-primary"></div>';
                     
-                    db.collection("claims").where("createdBy", "==", this.state.user.id).orderBy("date", "desc").get().then(snap => {
+                    // REMOVED .orderBy() to prevent index error
+                    db.collection("claims").where("createdBy", "==", this.state.user.id).get().then(snap => {
                         list.innerHTML = "";
                         if(snap.empty) document.getElementById('noClaimsMsg').style.display = 'block';
                         else {
                             document.getElementById('noClaimsMsg').style.display = 'none';
-                            snap.forEach(doc => {
-                                const d = doc.data();
+                            
+                            // MANUAL SORT IN JS
+                            let docs = [];
+                            snap.forEach(d => docs.push(d.data()));
+                            docs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                            docs.forEach(d => {
                                 let debtTags = d.debtors.map(x => `<span class="badge bg-white text-dark border me-1">${x.name}: RM${x.amount.toFixed(2)}</span>`).join("");
-                                list.innerHTML += `
-                                    <div class="card card-debt p-3">
-                                        <div class="d-flex justify-content-between">
-                                            <h6 class="fw-bold">${d.itemName}</h6>
-                                            <small class="text-muted">${d.date}</small>
-                                        </div>
-                                        <div class="mt-2 mb-2">${debtTags}</div>
-                                        <div class="text-end border-top pt-2">
-                                            <small class="text-muted">Total Receipt:</small> <strong>RM ${d.totalWithTax.toFixed(2)}</strong>
-                                        </div>
-                                    </div>
-                                `;
+                                list.innerHTML += `<div class="card card-debt p-3"><div class="d-flex justify-content-between"><h6 class="fw-bold">${d.itemName}</h6><small class="text-muted">${d.date}</small></div><div class="mt-2 mb-2">${debtTags}</div><div class="text-end border-top pt-2"><small class="text-muted">Total Receipt:</small> <strong>RM ${d.totalWithTax.toFixed(2)}</strong></div></div>`;
                             });
                         }
-                    });
+                    }).catch(e => { alert("Error loading claims: " + e.message); });
                 }
 
-                // --- PAY HUTANG ---
                 goToBayarHutang() {
                     this.showView('view-bayar');
                     const list = document.getElementById('debtsList');
                     list.innerHTML = '<div class="spinner-border text-primary"></div>';
 
-                    db.collection("claims").where("debtorIds", "array-contains", this.state.user.id).orderBy("date", "desc").get().then(snap => {
+                    // REMOVED .orderBy() to prevent index error
+                    db.collection("claims").where("debtorIds", "array-contains", this.state.user.id).get().then(snap => {
                         list.innerHTML = "";
                         if(snap.empty) {
                             document.getElementById('noDebtsMsg').style.display = 'block';
@@ -649,118 +556,73 @@
                         document.getElementById('noDebtsMsg').style.display = 'none';
 
                         let groups = {};
-                        snap.forEach(doc => {
-                            const d = doc.data();
+                        
+                        // MANUAL SORT
+                        let docs = [];
+                        snap.forEach(d => docs.push({ id: d.id, data: d.data() }));
+                        docs.sort((a, b) => new Date(b.data.date) - new Date(a.data.date));
+
+                        docs.forEach(doc => {
+                            const d = doc.data;
                             const myDebt = d.debtors.find(x => x.userId === this.state.user.id);
                             if(!groups[d.createdBy]) groups[d.createdBy] = { name: d.createdByName, id: d.createdBy, debts: [] };
-                            groups[d.createdBy].debts.push({ 
-                                id: doc.id,
-                                data: d,
-                                amount: myDebt.amount 
-                            });
+                            groups[d.createdBy].debts.push({ id: doc.id, data: d, amount: myDebt.amount });
                         });
 
                         Object.values(groups).forEach(g => {
                             let rows = "";
                             g.debts.forEach((item, idx) => {
-                                // Store data in a way we can retrieve for "View Receipt"
                                 const itemJson = encodeURIComponent(JSON.stringify(item.data));
-                                rows += `
-                                    <div class="d-flex justify-content-between align-items-center border-bottom py-2">
-                                        <div class="form-check">
-                                            <input class="form-check-input debt-check-${g.id}" type="checkbox" value="${item.amount}" id="cb-${g.id}-${idx}">
-                                            <label class="form-check-label" for="cb-${g.id}-${idx}">
-                                                ${item.data.itemName} <br> 
-                                                <small class="text-muted">${item.data.date}</small>
-                                            </label>
-                                        </div>
-                                        <div class="text-end">
-                                            <div class="fw-bold">RM ${item.amount.toFixed(2)}</div>
-                                            <button class="btn btn-link p-0 text-decoration-none small" onclick="app.viewReceiptDetails('${itemJson}')">View Receipt</button>
-                                        </div>
-                                    </div>
-                                `;
+                                rows += `<div class="d-flex justify-content-between align-items-center border-bottom py-2"><div class="form-check"><input class="form-check-input debt-check-${g.id}" type="checkbox" value="${item.amount}" id="cb-${g.id}-${idx}"><label class="form-check-label" for="cb-${g.id}-${idx}">${item.data.itemName} <br> <small class="text-muted">${item.data.date}</small></label></div><div class="text-end"><div class="fw-bold">RM ${item.amount.toFixed(2)}</div><button class="btn btn-link p-0 text-decoration-none small" onclick="app.viewReceiptDetails('${itemJson}')">View Receipt</button></div></div>`;
                             });
-                            list.innerHTML += `
-                                <div class="card p-3 mb-3 border-0 shadow-sm">
-                                    <h6 class="text-primary fw-bold border-bottom pb-2 mb-0">Owe to: ${g.name}</h6>
-                                    <div class="mb-3">${rows}</div>
-                                    <button class="btn btn-success w-100" onclick="app.openPayModal('${g.id}')">Pay Selected</button>
-                                </div>
-                            `;
+                            list.innerHTML += `<div class="card p-3 mb-3 border-0 shadow-sm"><h6 class="text-primary fw-bold border-bottom pb-2 mb-0">Owe to: ${g.name}</h6><div class="mb-3">${rows}</div><button class="btn btn-success w-100" onclick="app.openPayModal('${g.id}')">Pay Selected</button></div>`;
                         });
-                    });
+                    }).catch(e => { alert("Error loading debts: " + e.message); });
                 }
 
                 viewReceiptDetails(encodedJson) {
                     const data = JSON.parse(decodeURIComponent(encodedJson));
                     const myUid = this.state.user.id;
-                    
                     document.getElementById('detailTitle').innerText = data.itemName;
                     document.getElementById('detailDate').innerText = data.date;
                     document.getElementById('detailTotalBill').innerText = `RM ${data.totalWithTax.toFixed(2)}`;
-                    
                     const list = document.getElementById('detailItemsList');
                     list.innerHTML = "";
-                    
                     if(!data.items) {
                         list.innerHTML = "<p>Legacy receipt (No details available).</p>";
                     } else {
                         data.items.forEach(item => {
                             const isMe = item.involved.includes(myUid);
                             const highlight = isMe ? "bg-light border-start border-4 border-success" : "";
-                            
                             let userNames = item.involved.map(uid => {
                                 const u = this.state.allUsers.find(x => x.id === uid);
                                 return u ? u.name : "Unknown";
                             }).join(", ");
-
-                            list.innerHTML += `
-                                <div class="p-2 mb-1 ${highlight}">
-                                    <div class="d-flex justify-content-between">
-                                        <strong>${item.name}</strong>
-                                        <span>RM ${item.price.toFixed(2)}</span>
-                                    </div>
-                                    <small class="text-muted">Shared by: ${userNames}</small>
-                                </div>
-                            `;
+                            list.innerHTML += `<div class="p-2 mb-1 ${highlight}"><div class="d-flex justify-content-between"><strong>${item.name}</strong><span>RM ${item.price.toFixed(2)}</span></div><small class="text-muted">Shared by: ${userNames}</small></div>`;
                         });
                     }
-
-                    // My Share Display
                     const myShare = data.debtors.find(d => d.userId === myUid)?.amount || 0;
                     document.getElementById('detailMyShare').innerText = `RM ${myShare.toFixed(2)}`;
-
                     new bootstrap.Modal(document.getElementById('viewDetailsModal')).show();
                 }
 
                 openPayModal(creditorId) {
                     const cbs = document.querySelectorAll(`.debt-check-${creditorId}:checked`);
                     if(cbs.length === 0) return alert("Select item to pay");
-                    
                     let total = 0;
                     cbs.forEach(cb => total += parseFloat(cb.value));
-                    
                     const creditor = this.state.allUsers.find(u => u.id === creditorId);
                     document.getElementById('payTotalDisplay').innerText = `RM ${total.toFixed(2)}`;
-                    
                     const qrDiv = document.getElementById('payQrDisplay');
                     if(creditor.qrImage) qrDiv.innerHTML = `<img src="${creditor.qrImage}" class="qr-preview">`;
                     else qrDiv.innerHTML = `<h4>${creditor.phone}</h4>`;
-
                     const cleanPhone = creditor.phone.replace(/[^0-9]/g, '');
                     const msg = `Hi ${creditor.name}, paid RM ${total.toFixed(2)} via Hutang Helper.`;
-                    
-                    document.getElementById('btnWhatsappPay').onclick = () => {
-                        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-                    };
-
+                    document.getElementById('btnWhatsappPay').onclick = () => { window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank'); };
                     new bootstrap.Modal(document.getElementById('payModal')).show();
                 }
             }
-
             window.app = new HutangApp();
-
         } catch (e) {
             document.getElementById('errorMsg').innerText = e.message;
             document.getElementById('errorMsg').classList.remove('d-none');
