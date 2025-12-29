@@ -20,14 +20,14 @@
         .card-debt { border: none; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 10px; }
         .btn-float { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); z-index: 1000; }
         .qr-preview { width: 100%; max-width: 250px; height: auto; border-radius: 10px; border: 2px solid #eee; }
-        .receipt-item { font-size: 0.9rem; border-bottom: 1px dashed #ddd; padding: 8px 0; }
-        .user-tag { font-size: 0.7rem; background: #eef; color: #444; padding: 2px 6px; border-radius: 4px; margin-right: 2px; display: inline-block; }
         
         /* Receipt Mode Specifics */
         .receipt-card { border-left: 5px solid #0d6efd; transition: transform 0.2s; }
         .receipt-card:active { transform: scale(0.98); }
-        .item-row { transition: background 0.2s; cursor: pointer; }
-        .item-row.selected { background-color: #e8f0fe; border-left: 3px solid #0d6efd; }
+        
+        /* Quantity Buttons */
+        .qty-badge { min-width: 60px; text-align: center; display: inline-block; font-weight: bold; }
+        .qty-btn { width: 35px; height: 35px; border-radius: 50%; padding: 0; line-height: 1; font-weight: bold; display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
@@ -210,8 +210,8 @@
                     </ul>
                     <div class="tab-content">
                         <div class="tab-pane fade show active" id="tab-template">
-                            <p class="small text-muted">Format:<br>Event Name<br>Date<br>Tax%<br>ItemName, Price<br>ItemName, Price...</p>
-                            <textarea id="importText" class="form-control" rows="8" placeholder="Mamak&#10;2025-01-01&#10;6&#10;Nasi Lemak, 12.00&#10;Teh Ais, 3.50"></textarea>
+                            <p class="small text-muted">Format:<br>Event Name<br>Date<br>Tax%<br>Item Name, Quantity, Total Price</p>
+                            <textarea id="importText" class="form-control" rows="8" placeholder="Mamak&#10;2025-01-01&#10;6&#10;Nasi Lemak, 3, 30.00&#10;Teh O Ais, 5, 12.50"></textarea>
                         </div>
                         <div class="tab-pane fade" id="tab-manual">
                             <div class="alert alert-info small">Use the Template tab for now. It's faster! Just type each item on a new line.</div>
@@ -238,7 +238,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted small">Tap the items you ate/shared.</p>
+                    <p class="text-muted small">Use +/- to select how many you ate.</p>
                     <div id="userSelectItemsList" class="list-group mb-3"></div>
                     <div class="card bg-light border-0 p-3 sticky-bottom">
                         <div class="d-flex justify-content-between mb-2"><span>Subtotal:</span><span id="usSubtotal">RM 0.00</span></div>
@@ -332,14 +332,7 @@
                     this.listenToReceipts(); 
                 }
 
-                showView(viewId) {
-                    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
-                    document.getElementById(viewId).classList.add('active-view');
-                    const logoutBtn = document.getElementById('logoutBtn');
-                    if(viewId === 'view-login' || viewId === 'view-loading') logoutBtn.classList.add('d-none');
-                    else logoutBtn.classList.remove('d-none');
-                }
-
+                // --- DATA LISTENERS ---
                 listenToSettings() {
                     db.collection("app_settings").onSnapshot((snap) => {
                         if (snap.empty) { db.collection("app_settings").add({ isLocked: false, appMode: 'classic' }); } 
@@ -354,11 +347,11 @@
                             if(this.state.appMode === 'receipt') {
                                 document.getElementById('modeReceipt').checked = true;
                                 document.getElementById('manualLoginArea').classList.remove('d-none');
-                                document.getElementById('adminReceiptArea').classList.remove('d-none'); // FIX: Show on load
+                                document.getElementById('adminReceiptArea').classList.remove('d-none');
                             } else {
                                 document.getElementById('modeClassic').checked = true;
                                 document.getElementById('manualLoginArea').classList.add('d-none');
-                                document.getElementById('adminReceiptArea').classList.add('d-none'); // FIX: Hide on load
+                                document.getElementById('adminReceiptArea').classList.add('d-none');
                             }
 
                             if(this.state.user) this.routeUser();
@@ -372,11 +365,9 @@
                         const list = document.getElementById('adminUserList');
                         const select = document.getElementById('loginUserSelect');
                         const rSelect = document.getElementById('usNameSelect'); 
-
                         list.innerHTML = '';
                         select.innerHTML = '<option value="">Select your name...</option>';
                         rSelect.innerHTML = '<option value="">Select Name...</option>';
-
                         snap.forEach((doc) => {
                             const u = { id: doc.id, ...doc.data() };
                             this.state.allUsers.push(u);
@@ -397,24 +388,16 @@
                         snap.forEach(doc => {
                             const r = { id: doc.id, ...doc.data() };
                             const rJson = encodeURIComponent(JSON.stringify(r));
-                            // FIX: Added Edit Button for Admin
-                            adminList.innerHTML += `
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div><strong>${r.name}</strong> <br> <small>${r.date}</small></div>
-                                    <div>
-                                        <button class="btn btn-sm btn-secondary me-1" onclick="app.showImportModal('${rJson}')">Edit</button>
-                                        <button class="btn btn-sm btn-danger" onclick="app.deleteReceiptSession('${r.id}')">Delete</button>
-                                    </div>
-                                </li>`;
+                            adminList.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center"><div><strong>${r.name}</strong> <br> <small>${r.date}</small></div><div><button class="btn btn-sm btn-secondary me-1" onclick="app.showImportModal('${rJson}')">Edit</button><button class="btn btn-sm btn-danger" onclick="app.deleteReceiptSession('${r.id}')">Delete</button></div></li>`;
                             userList.innerHTML += `<div class="card shadow-sm receipt-card p-3 mb-2" onclick="app.openUserReceiptSelect('${r.id}')" style="cursor:pointer"><div class="d-flex justify-content-between align-items-center"><div><h5 class="fw-bold mb-0">${r.name}</h5><small class="text-muted">${r.date}</small></div><i class="fa-solid fa-chevron-right text-muted"></i></div></div>`;
                         });
                     });
                 }
 
+                // --- AUTH ---
                 joinAsNewUser() {
                     const name = document.getElementById('manualNameInput').value.trim();
                     if(!name) return alert("Please type a name.");
-                    
                     const existing = this.state.allUsers.find(u => u.name.toLowerCase() === name.toLowerCase());
                     if(existing) {
                         if(confirm(`"${existing.name}" already exists. Log in as them?`)) {
@@ -423,7 +406,6 @@
                         }
                         return;
                     }
-
                     db.collection("users").add({ name: name, phone: "", qrImage: "" }).then(docRef => {
                         this.state.user = { id: docRef.id, name: name, phone: "", qrImage: "" };
                         this.routeUser();
@@ -449,8 +431,9 @@
                 }
 
                 logout() { this.state.user = null; this.showView('view-login'); }
-                showAdminAuth() { if(prompt("Password:") === "admin123") this.showView('view-admin'); else alert("Wrong"); }
                 
+                // --- ADMIN ---
+                showAdminAuth() { if(prompt("Password:") === "admin123") this.showView('view-admin'); else alert("Wrong"); }
                 addUser() {
                     const name = document.getElementById('newUserName').value;
                     const phone = document.getElementById('newUserPhone').value;
@@ -461,42 +444,33 @@
                     }
                 }
                 deleteUser(id) { if(confirm("Delete?")) db.collection("users").doc(id).delete(); }
-                
                 toggleLock() { db.collection("app_settings").doc(this.settingsDocId).update({ isLocked: document.getElementById('appLockSwitch').checked }); }
-                
                 changeAppMode(mode) {
                     db.collection("app_settings").doc(this.settingsDocId).update({ appMode: mode });
                     if(mode === 'receipt') document.getElementById('adminReceiptArea').classList.remove('d-none');
                     else document.getElementById('adminReceiptArea').classList.add('d-none');
                 }
-
                 showLogin() { this.showView('view-login'); }
 
-                // --- RECEIPT IMPORTER (CREATE & EDIT) ---
+                // --- RECEIPT IMPORT (NEW LOGIC: Name, Qty, TotalPrice) ---
                 showImportModal(jsonData) {
                     document.getElementById('receiptQrInput').value = '';
-                    
                     if(jsonData) {
-                        // EDIT MODE
                         const data = JSON.parse(decodeURIComponent(jsonData));
                         this.state.editingSessionId = data.id;
                         document.getElementById('importModalTitle').innerText = "Edit Receipt Session";
                         document.getElementById('btnProcessImport').innerText = "Update Session";
-                        
-                        // Convert items back to text
                         let text = `${data.name}\n${data.date}\n${data.taxPercent}`;
                         data.items.forEach(i => {
-                            text += `\n${i.name}, ${i.price}`;
+                            text += `\n${i.name}, ${i.qty}, ${i.totalPrice.toFixed(2)}`;
                         });
                         document.getElementById('importText').value = text;
                     } else {
-                        // CREATE MODE
                         this.state.editingSessionId = null;
                         document.getElementById('importModalTitle').innerText = "New Receipt Session";
                         document.getElementById('btnProcessImport').innerText = "Create Session";
                         document.getElementById('importText').value = '';
                     }
-                    
                     new bootstrap.Modal(document.getElementById('importReceiptModal')).show();
                 }
 
@@ -509,48 +483,54 @@
                     const tax = parseFloat(lines[2]) || 0;
                     let items = [];
                     for(let i=3; i<lines.length; i++) {
-                        const parts = lines[i].split(',');
+                        const parts = lines[i].split(',').map(s => s.trim());
                         if(parts.length >= 2) {
-                            const iName = parts[0].trim();
-                            const iPrice = parseFloat(parts[parts.length-1]); 
-                            if(!isNaN(iPrice)) {
-                                items.push({ id: Date.now() + i, name: iName, price: iPrice, claimedBy: [] });
+                            const iName = parts[0];
+                            let iQty = 1;
+                            let iTotal = 0;
+                            // Handle old format (Name, Price) vs New (Name, Qty, Total)
+                            if(parts.length === 2) {
+                                iTotal = parseFloat(parts[1]);
+                            } else if (parts.length === 3) {
+                                iQty = parseInt(parts[1]) || 1;
+                                iTotal = parseFloat(parts[2]);
+                            }
+                            if(!isNaN(iTotal)) {
+                                items.push({
+                                    id: Date.now() + i,
+                                    name: iName,
+                                    qty: iQty,
+                                    totalPrice: iTotal,
+                                    unitPrice: iTotal / iQty,
+                                    claims: {} // Map: uid -> count
+                                });
                             }
                         }
                     }
                     const file = document.getElementById('receiptQrInput').files[0];
-                    
                     const finishSave = (qrBase64) => {
                         const payload = { name, date, taxPercent: tax, items };
                         if(qrBase64) payload.sessionQr = qrBase64;
-
                         if(this.state.editingSessionId) {
-                            // UPDATE
-                            // Warning: This resets claimedBy if you change items. 
-                            // For simplicity in this text-based edit, we overwrite items.
                             db.collection("receipt_sessions").doc(this.state.editingSessionId).update(payload)
                             .then(() => bootstrap.Modal.getInstance(document.getElementById('importReceiptModal')).hide());
                         } else {
-                            // CREATE
                             db.collection("receipt_sessions").add(payload)
                             .then(() => bootstrap.Modal.getInstance(document.getElementById('importReceiptModal')).hide());
                         }
                     };
-
                     if(file) {
                         const reader = new FileReader();
                         reader.onload = (e) => finishSave(e.target.result);
                         reader.readAsDataURL(file);
                     } else { finishSave(null); }
                 }
+                deleteReceiptSession(id) { if(confirm("Delete?")) db.collection("receipt_sessions").doc(id).delete(); }
 
-                deleteReceiptSession(id) { if(confirm("Delete this receipt session?")) db.collection("receipt_sessions").doc(id).delete(); }
-
-                // --- USER RECEIPT SELECTION ---
+                // --- USER RECEIPT SELECTION (QTY LOGIC) ---
                 openUserReceiptSelect(rid) {
                     db.collection("receipt_sessions").doc(rid).get().then(doc => {
                         this.state.currentReceiptSession = { id: doc.id, ...doc.data() };
-                        this.state.selectedReceiptItems = []; 
                         this.renderReceiptSessionModal();
                         new bootstrap.Modal(document.getElementById('userSelectModal')).show();
                     });
@@ -558,38 +538,77 @@
 
                 renderReceiptSessionModal() {
                     const r = this.state.currentReceiptSession;
+                    const myUid = this.state.user.id;
                     document.getElementById('userSelectTitle').innerText = r.name;
                     const list = document.getElementById('userSelectItemsList');
                     list.innerHTML = '';
+
                     r.items.forEach((item, index) => {
-                        const isSelected = this.state.selectedReceiptItems.includes(index);
-                        const selectClass = isSelected ? 'selected' : '';
-                        const claimTags = item.claimedBy.map(uid => {
-                            const u = this.state.allUsers.find(x => x.id === uid);
-                            return u ? `<span class="badge bg-secondary me-1" style="font-size:0.6rem">${u.name}</span>` : '';
-                        }).join('');
-                        list.innerHTML += `<a href="#" class="list-group-item list-group-item-action item-row ${selectClass}" onclick="app.toggleReceiptItem(${index})"><div class="d-flex justify-content-between align-items-center"><div><div class="fw-bold">${item.name}</div><div>${claimTags}</div></div><div class="fw-bold">RM ${item.price.toFixed(2)}</div></div></a>`;
+                        // Current claims in DB
+                        if (!item.claims) item.claims = {};
+                        const dbClaim = item.claims[myUid] || 0;
+                        
+                        list.innerHTML += `
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <strong>${item.name}</strong>
+                                    <small class="text-muted">RM ${item.unitPrice.toFixed(2)}/each</small>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-light text-dark border">
+                                        Total Avail: ${item.qty}
+                                    </span>
+                                    <div class="d-flex align-items-center bg-light rounded p-1">
+                                        <button class="btn btn-sm btn-outline-danger qty-btn" onclick="app.adjustItemQty(${index}, -1)">-</button>
+                                        <span class="qty-badge mx-2">${dbClaim}</span>
+                                        <button class="btn btn-sm btn-outline-success qty-btn" onclick="app.adjustItemQty(${index}, 1)">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
                     });
                     this.calculateUserReceiptTotal();
                 }
 
-                toggleReceiptItem(index) {
-                    if(this.state.selectedReceiptItems.includes(index)) this.state.selectedReceiptItems = this.state.selectedReceiptItems.filter(i => i !== index);
-                    else this.state.selectedReceiptItems.push(index);
-                    this.renderReceiptSessionModal(); 
+                adjustItemQty(index, delta) {
+                    const item = this.state.currentReceiptSession.items[index];
+                    const myUid = this.state.user.id;
+                    
+                    if (!item.claims) item.claims = {};
+                    const currentMyQty = item.claims[myUid] || 0;
+                    
+                    // Calc total claimed by others
+                    let otherClaimed = 0;
+                    Object.keys(item.claims).forEach(uid => {
+                        if(uid !== myUid) otherClaimed += item.claims[uid];
+                    });
+
+                    const newMyQty = currentMyQty + delta;
+
+                    // Validation
+                    if (newMyQty < 0) return; // Cannot go below 0
+                    if ((newMyQty + otherClaimed) > item.qty) return alert("Max quantity reached for this item!");
+
+                    // Update local state object
+                    item.claims[myUid] = newMyQty;
+                    
+                    // Re-render
+                    this.renderReceiptSessionModal();
                 }
 
                 calculateUserReceiptTotal() {
                     const r = this.state.currentReceiptSession;
+                    const myUid = this.state.user.id;
                     let subtotal = 0;
-                    this.state.selectedReceiptItems.forEach(idx => {
-                        const item = r.items[idx];
-                        const alreadyClaimedByMe = item.claimedBy.includes(this.state.user.id);
-                        const count = item.claimedBy.length + (alreadyClaimedByMe ? 0 : 1); 
-                        subtotal += (item.price / count);
+
+                    r.items.forEach(item => {
+                        const myQty = item.claims ? (item.claims[myUid] || 0) : 0;
+                        subtotal += (myQty * item.unitPrice);
                     });
+
                     const taxAmt = subtotal * (r.taxPercent / 100);
                     const total = subtotal + taxAmt;
+
                     document.getElementById('usSubtotal').innerText = `RM ${subtotal.toFixed(2)}`;
                     document.getElementById('usTaxPct').innerText = r.taxPercent;
                     document.getElementById('usTaxAmt').innerText = `RM ${taxAmt.toFixed(2)}`;
@@ -601,24 +620,34 @@
                     const r = this.state.currentReceiptSession;
                     const uid = document.getElementById('usNameSelect').value;
                     if(!uid) return alert("Select Name");
-                    if(this.state.selectedReceiptItems.length === 0) return alert("Select at least 1 item");
-                    let newItems = [...r.items];
-                    this.state.selectedReceiptItems.forEach(idx => {
-                        if(!newItems[idx].claimedBy.includes(uid)) newItems[idx].claimedBy.push(uid);
-                    });
-                    db.collection("receipt_sessions").doc(r.id).update({ items: newItems }).then(() => {
+
+                    // Save the updated items array (which contains the modified claims map) to Firestore
+                    db.collection("receipt_sessions").doc(r.id).update({ items: r.items }).then(() => {
                         bootstrap.Modal.getInstance(document.getElementById('userSelectModal')).hide();
+                        
                         const totalStr = document.getElementById('usTotal').innerText; 
                         document.getElementById('payTotalDisplay').innerText = totalStr;
                         const qrDiv = document.getElementById('payQrDisplay');
+                        
                         if(r.sessionQr) qrDiv.innerHTML = `<img src="${r.sessionQr}" class="qr-preview">`;
-                        else qrDiv.innerHTML = `<div class="alert alert-warning">No Receipt QR set. Pay to Host directly.</div>`;
+                        else qrDiv.innerHTML = `<div class="alert alert-warning">No Receipt QR set. Pay to Host.</div>`;
+                        
                         document.getElementById('btnWhatsappPay').style.display = 'none'; 
                         new bootstrap.Modal(document.getElementById('payModal')).show();
                     });
                 }
 
-                // --- CLASSIC MODE ---
+                // --- UTILS ---
+                showView(viewId) {
+                    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
+                    document.getElementById(viewId).classList.add('active-view');
+                    const logoutBtn = document.getElementById('logoutBtn');
+                    if(viewId === 'view-login' || viewId === 'view-loading') logoutBtn.classList.add('d-none');
+                    else logoutBtn.classList.remove('d-none');
+                }
+                logout() { this.state.user = null; this.showView('view-login'); }
+                
+                // ... (Kept existing classic mode functions below just in case) ...
                 renderProfileQR() {
                     const div = document.getElementById('profileQrArea');
                     if(this.state.user.qrImage) div.innerHTML = `<img src="${this.state.user.qrImage}" class="qr-preview mb-2"><br><small class="text-success">QR Active</small>`;
@@ -647,7 +676,7 @@
                     });
                     if (existingClaimJson) {
                         const data = JSON.parse(decodeURIComponent(existingClaimJson));
-                        this.state.editingClaimId = data.id; 
+                        this.state.editingClaimId = data.id; 
                         document.getElementById('receiptModalTitle').innerText = "Edit Receipt";
                         document.getElementById('btnSaveClaim').innerText = "Update";
                         document.getElementById('btnDeleteClaim').classList.remove('d-none');
@@ -747,7 +776,7 @@
                     const handleSuccess = () => {
                         bootstrap.Modal.getInstance(document.getElementById('receiptModal')).hide();
                         this.loadMyClaims();
-                        this.showView('view-minta'); 
+                        this.showView('view-minta'); 
                     };
                     if(this.state.editingClaimId) {
                         db.collection("claims").doc(this.state.editingClaimId).update(payload).then(handleSuccess).catch(e => alert(e.message));
@@ -773,7 +802,7 @@
                         else {
                             document.getElementById('noClaimsMsg').style.display = 'none';
                             let docs = [];
-                            snap.forEach(d => docs.push({ id: d.id, ...d.data() })); 
+                            snap.forEach(d => docs.push({ id: d.id, ...d.data() })); 
                             docs.sort((a, b) => new Date(b.date) - new Date(a.date));
                             docs.forEach(d => {
                                 const json = encodeURIComponent(JSON.stringify(d));
