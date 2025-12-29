@@ -452,7 +452,7 @@
                 }
                 showLogin() { this.showView('view-login'); }
 
-                // --- RECEIPT IMPORT (NEW LOGIC: Name, Qty, TotalPrice) ---
+                // --- RECEIPT IMPORT (NEW LOGIC) ---
                 showImportModal(jsonData) {
                     document.getElementById('receiptQrInput').value = '';
                     if(jsonData) {
@@ -462,7 +462,9 @@
                         document.getElementById('btnProcessImport').innerText = "Update Session";
                         let text = `${data.name}\n${data.date}\n${data.taxPercent}`;
                         data.items.forEach(i => {
-                            text += `\n${i.name}, ${i.qty}, ${i.totalPrice.toFixed(2)}`;
+                            // Safe check for qty
+                            const q = i.qty || 1;
+                            text += `\n${i.name}, ${q}, ${i.totalPrice.toFixed(2)}`;
                         });
                         document.getElementById('importText').value = text;
                     } else {
@@ -502,7 +504,7 @@
                                     qty: iQty,
                                     totalPrice: iTotal,
                                     unitPrice: iTotal / iQty,
-                                    claims: {} // Map: uid -> count
+                                    claims: {} 
                                 });
                             }
                         }
@@ -530,9 +532,13 @@
                 // --- USER RECEIPT SELECTION (QTY LOGIC) ---
                 openUserReceiptSelect(rid) {
                     db.collection("receipt_sessions").doc(rid).get().then(doc => {
+                        if(!doc.exists) return alert("Receipt not found.");
                         this.state.currentReceiptSession = { id: doc.id, ...doc.data() };
                         this.renderReceiptSessionModal();
                         new bootstrap.Modal(document.getElementById('userSelectModal')).show();
+                    }).catch(e => {
+                        console.error(e);
+                        alert("Error opening receipt. See console.");
                     });
                 }
 
@@ -544,8 +550,11 @@
                     list.innerHTML = '';
 
                     r.items.forEach((item, index) => {
-                        // Current claims in DB
+                        // FIX: Ensure data exists for legacy receipts
                         if (!item.claims) item.claims = {};
+                        if (!item.qty) item.qty = 1;
+                        if (!item.unitPrice) item.unitPrice = item.totalPrice; 
+
                         const dbClaim = item.claims[myUid] || 0;
                         
                         list.innerHTML += `
@@ -556,7 +565,7 @@
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center">
                                     <span class="badge bg-light text-dark border">
-                                        Total Avail: ${item.qty}
+                                        Total: ${item.qty}
                                     </span>
                                     <div class="d-flex align-items-center bg-light rounded p-1">
                                         <button class="btn btn-sm btn-outline-danger qty-btn" onclick="app.adjustItemQty(${index}, -1)">-</button>
@@ -575,6 +584,9 @@
                     const myUid = this.state.user.id;
                     
                     if (!item.claims) item.claims = {};
+                    // Safety init
+                    if (!item.qty) item.qty = 1; 
+
                     const currentMyQty = item.claims[myUid] || 0;
                     
                     // Calc total claimed by others
@@ -603,7 +615,8 @@
 
                     r.items.forEach(item => {
                         const myQty = item.claims ? (item.claims[myUid] || 0) : 0;
-                        subtotal += (myQty * item.unitPrice);
+                        const price = item.unitPrice || item.totalPrice || 0; // Fallback
+                        subtotal += (myQty * price);
                     });
 
                     const taxAmt = subtotal * (r.taxPercent / 100);
@@ -613,7 +626,10 @@
                     document.getElementById('usTaxPct').innerText = r.taxPercent;
                     document.getElementById('usTaxAmt').innerText = `RM ${taxAmt.toFixed(2)}`;
                     document.getElementById('usTotal').innerText = `RM ${total.toFixed(2)}`;
-                    document.getElementById('usNameSelect').value = this.state.user.id;
+                    
+                    // Ensure select is safe
+                    const nameSelect = document.getElementById('usNameSelect');
+                    if(nameSelect) nameSelect.value = this.state.user.id;
                 }
 
                 confirmSelection() {
@@ -647,7 +663,7 @@
                 }
                 logout() { this.state.user = null; this.showView('view-login'); }
                 
-                // ... (Kept existing classic mode functions below just in case) ...
+                // --- CLASSIC MODE (Legacy Support) ---
                 renderProfileQR() {
                     const div = document.getElementById('profileQrArea');
                     if(this.state.user.qrImage) div.innerHTML = `<img src="${this.state.user.qrImage}" class="qr-preview mb-2"><br><small class="text-success">QR Active</small>`;
