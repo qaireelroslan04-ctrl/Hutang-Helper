@@ -117,7 +117,7 @@
                     <div class="card border-0 shadow-sm p-3">
                         <h5 class="d-flex justify-content-between">
                             Active Receipts 
-                            <button class="btn btn-sm btn-primary" onclick="app.showImportModal()">+ New</button>
+                            <button class="btn btn-sm btn-primary" onclick="app.showImportModal(null)">+ New</button>
                         </h5>
                         <ul id="adminReceiptList" class="list-group list-group-flush"></ul>
                     </div>
@@ -200,7 +200,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">New Receipt Session</h5>
+                    <h5 class="modal-title" id="importModalTitle">New Receipt Session</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -224,7 +224,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" onclick="app.processImport()">Create Session</button>
+                    <button class="btn btn-primary" id="btnProcessImport" onclick="app.processImport()">Create Session</button>
                 </div>
             </div>
         </div>
@@ -322,7 +322,7 @@
             
             class HutangApp {
                 constructor() {
-                    this.state = { user: null, allUsers: [], isLocked: false, appMode: 'classic', tempItems: [], editingClaimId: null, currentReceiptSession: null, selectedReceiptItems: [] };
+                    this.state = { user: null, allUsers: [], isLocked: false, appMode: 'classic', tempItems: [], editingClaimId: null, currentReceiptSession: null, selectedReceiptItems: [], editingSessionId: null };
                     this.init();
                 }
 
@@ -350,12 +350,15 @@
                             this.settingsDocId = snap.docs[0].id;
                             
                             document.getElementById('appLockSwitch').checked = this.state.isLocked;
+                            
                             if(this.state.appMode === 'receipt') {
                                 document.getElementById('modeReceipt').checked = true;
                                 document.getElementById('manualLoginArea').classList.remove('d-none');
+                                document.getElementById('adminReceiptArea').classList.remove('d-none'); // FIX: Show on load
                             } else {
                                 document.getElementById('modeClassic').checked = true;
                                 document.getElementById('manualLoginArea').classList.add('d-none');
+                                document.getElementById('adminReceiptArea').classList.add('d-none'); // FIX: Hide on load
                             }
 
                             if(this.state.user) this.routeUser();
@@ -393,7 +396,16 @@
                         userList.innerHTML = '';
                         snap.forEach(doc => {
                             const r = { id: doc.id, ...doc.data() };
-                            adminList.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center"><div><strong>${r.name}</strong> <br> <small>${r.date}</small></div><button class="btn btn-sm btn-danger" onclick="app.deleteReceiptSession('${r.id}')">Delete</button></li>`;
+                            const rJson = encodeURIComponent(JSON.stringify(r));
+                            // FIX: Added Edit Button for Admin
+                            adminList.innerHTML += `
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div><strong>${r.name}</strong> <br> <small>${r.date}</small></div>
+                                    <div>
+                                        <button class="btn btn-sm btn-secondary me-1" onclick="app.showImportModal('${rJson}')">Edit</button>
+                                        <button class="btn btn-sm btn-danger" onclick="app.deleteReceiptSession('${r.id}')">Delete</button>
+                                    </div>
+                                </li>`;
                             userList.innerHTML += `<div class="card shadow-sm receipt-card p-3 mb-2" onclick="app.openUserReceiptSelect('${r.id}')" style="cursor:pointer"><div class="d-flex justify-content-between align-items-center"><div><h5 class="fw-bold mb-0">${r.name}</h5><small class="text-muted">${r.date}</small></div><i class="fa-solid fa-chevron-right text-muted"></i></div></div>`;
                         });
                     });
@@ -460,10 +472,31 @@
 
                 showLogin() { this.showView('view-login'); }
 
-                // --- RECEIPT IMPORTER ---
-                showImportModal() {
-                    document.getElementById('importText').value = '';
+                // --- RECEIPT IMPORTER (CREATE & EDIT) ---
+                showImportModal(jsonData) {
                     document.getElementById('receiptQrInput').value = '';
+                    
+                    if(jsonData) {
+                        // EDIT MODE
+                        const data = JSON.parse(decodeURIComponent(jsonData));
+                        this.state.editingSessionId = data.id;
+                        document.getElementById('importModalTitle').innerText = "Edit Receipt Session";
+                        document.getElementById('btnProcessImport').innerText = "Update Session";
+                        
+                        // Convert items back to text
+                        let text = `${data.name}\n${data.date}\n${data.taxPercent}`;
+                        data.items.forEach(i => {
+                            text += `\n${i.name}, ${i.price}`;
+                        });
+                        document.getElementById('importText').value = text;
+                    } else {
+                        // CREATE MODE
+                        this.state.editingSessionId = null;
+                        document.getElementById('importModalTitle').innerText = "New Receipt Session";
+                        document.getElementById('btnProcessImport').innerText = "Create Session";
+                        document.getElementById('importText').value = '';
+                    }
+                    
                     new bootstrap.Modal(document.getElementById('importReceiptModal')).show();
                 }
 
@@ -486,16 +519,29 @@
                         }
                     }
                     const file = document.getElementById('receiptQrInput').files[0];
-                    const saveSession = (qrBase64) => {
-                         db.collection("receipt_sessions").add({
-                            name, date, taxPercent: tax, items, sessionQr: qrBase64 || null
-                        }).then(() => { bootstrap.Modal.getInstance(document.getElementById('importReceiptModal')).hide(); });
+                    
+                    const finishSave = (qrBase64) => {
+                        const payload = { name, date, taxPercent: tax, items };
+                        if(qrBase64) payload.sessionQr = qrBase64;
+
+                        if(this.state.editingSessionId) {
+                            // UPDATE
+                            // Warning: This resets claimedBy if you change items. 
+                            // For simplicity in this text-based edit, we overwrite items.
+                            db.collection("receipt_sessions").doc(this.state.editingSessionId).update(payload)
+                            .then(() => bootstrap.Modal.getInstance(document.getElementById('importReceiptModal')).hide());
+                        } else {
+                            // CREATE
+                            db.collection("receipt_sessions").add(payload)
+                            .then(() => bootstrap.Modal.getInstance(document.getElementById('importReceiptModal')).hide());
+                        }
                     };
+
                     if(file) {
                         const reader = new FileReader();
-                        reader.onload = (e) => saveSession(e.target.result);
+                        reader.onload = (e) => finishSave(e.target.result);
                         reader.readAsDataURL(file);
-                    } else { saveSession(null); }
+                    } else { finishSave(null); }
                 }
 
                 deleteReceiptSession(id) { if(confirm("Delete this receipt session?")) db.collection("receipt_sessions").doc(id).delete(); }
