@@ -58,6 +58,18 @@
                     </div>
                     <button class="btn btn-primary w-100" onclick="app.login()">Enter App</button>
                     
+                    <div id="manualLoginArea" class="d-none">
+                        <div class="position-relative my-4">
+                            <hr>
+                            <span class="position-absolute top-50 start-50 translate-middle bg-white px-2 text-muted small">OR</span>
+                        </div>
+                        <label class="form-label">New here?</label>
+                        <div class="input-group">
+                            <input type="text" id="manualNameInput" class="form-control" placeholder="Type your name...">
+                            <button class="btn btn-success" onclick="app.joinAsNewUser()">Join</button>
+                        </div>
+                    </div>
+
                     <hr class="my-4">
                     <div class="text-center">
                         <small class="text-muted">Setting up for the first time?</small><br>
@@ -151,8 +163,7 @@
                     <p class="text-muted">Select a receipt to pay your share.</p>
                 </div>
                 
-                <div id="activeReceiptsList" class="d-grid gap-3">
-                    </div>
+                <div id="activeReceiptsList" class="d-grid gap-3"></div>
 
                 <div class="text-center mt-5">
                     <button class="btn btn-outline-secondary btn-sm" onclick="app.logout()">Log Out</button>
@@ -194,14 +205,9 @@
                 </div>
                 <div class="modal-body">
                     <ul class="nav nav-tabs mb-3" id="importTab" role="tablist">
-                        <li class="nav-item">
-                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-template">Template</button>
-                        </li>
-                        <li class="nav-item">
-                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-manual">Manual</button>
-                        </li>
+                        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-template">Template</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-manual">Manual</button></li>
                     </ul>
-                    
                     <div class="tab-content">
                         <div class="tab-pane fade show active" id="tab-template">
                             <p class="small text-muted">Format:<br>Event Name<br>Date<br>Tax%<br>ItemName, Price<br>ItemName, Price...</p>
@@ -211,7 +217,6 @@
                             <div class="alert alert-info small">Use the Template tab for now. It's faster! Just type each item on a new line.</div>
                         </div>
                     </div>
-                    
                     <div class="mt-3">
                         <label class="form-label fw-bold">Payment QR for this Receipt</label>
                         <input type="file" id="receiptQrInput" class="form-control form-control-sm" accept="image/*">
@@ -235,23 +240,12 @@
                 <div class="modal-body">
                     <p class="text-muted small">Tap the items you ate/shared.</p>
                     <div id="userSelectItemsList" class="list-group mb-3"></div>
-                    
                     <div class="card bg-light border-0 p-3 sticky-bottom">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Subtotal:</span>
-                            <span id="usSubtotal">RM 0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-2 text-muted small">
-                            <span>Tax (<span id="usTaxPct">0</span>%):</span>
-                            <span id="usTaxAmt">RM 0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between fw-bold h4 text-primary">
-                            <span>Total:</span>
-                            <span id="usTotal">RM 0.00</span>
-                        </div>
-                        
+                        <div class="d-flex justify-content-between mb-2"><span>Subtotal:</span><span id="usSubtotal">RM 0.00</span></div>
+                        <div class="d-flex justify-content-between mb-2 text-muted small"><span>Tax (<span id="usTaxPct">0</span>%):</span><span id="usTaxAmt">RM 0.00</span></div>
+                        <div class="d-flex justify-content-between fw-bold h4 text-primary"><span>Total:</span><span id="usTotal">RM 0.00</span></div>
                         <hr>
-                        <label class="form-label">Your Name</label>
+                        <label class="form-label">Confirm Name</label>
                         <select id="usNameSelect" class="form-select mb-3"></select>
                         <button class="btn btn-success w-100 btn-lg" onclick="app.confirmSelection()">Confirm & Pay</button>
                     </div>
@@ -263,23 +257,14 @@
     <div class="modal fade" id="receiptModal" tabindex="-1">
         <div class="modal-dialog modal-fullscreen">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="receiptModalTitle">Create Receipt</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
+                <div class="modal-header bg-primary text-white"><h5 class="modal-title" id="receiptModalTitle">Create Receipt</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body bg-light">
                     <div class="card border-0 shadow-sm p-3 mb-3">
-                        <div class="row g-2">
-                            <div class="col-8"><input type="text" id="receiptName" class="form-control fw-bold" placeholder="Event Name"></div>
-                            <div class="col-4"><input type="date" id="receiptDate" class="form-control"></div>
-                        </div>
+                        <div class="row g-2"><div class="col-8"><input type="text" id="receiptName" class="form-control fw-bold" placeholder="Event Name"></div><div class="col-4"><input type="date" id="receiptDate" class="form-control"></div></div>
                     </div>
                     <div class="card border-0 shadow-sm p-3 mb-3">
                         <h6 class="text-primary fw-bold mb-3">Add Item</h6>
-                        <div class="row g-2 align-items-center mb-2">
-                            <div class="col-8"><input type="text" id="newItemName" class="form-control form-control-sm" placeholder="Item"></div>
-                            <div class="col-4"><div class="input-group input-group-sm"><span class="input-group-text">RM</span><input type="number" id="newItemPrice" class="form-control"></div></div>
-                        </div>
+                        <div class="row g-2 align-items-center mb-2"><div class="col-8"><input type="text" id="newItemName" class="form-control form-control-sm" placeholder="Item"></div><div class="col-4"><div class="input-group input-group-sm"><span class="input-group-text">RM</span><input type="number" id="newItemPrice" class="form-control"></div></div></div>
                         <label class="form-label small text-muted mb-1">Who shared?</label>
                         <div class="d-flex flex-wrap gap-2 mb-3" id="newItemUsers"></div>
                         <button class="btn btn-outline-primary btn-sm w-100" onclick="app.addItemToReceipt()">Add Line Item</button>
@@ -287,10 +272,7 @@
                     <div class="card border-0 shadow-sm p-3 mb-3">
                         <h6 class="fw-bold border-bottom pb-2">Receipt Preview</h6>
                         <div id="receiptItemsList"></div>
-                        <div class="row mt-3 align-items-center">
-                            <div class="col-6 text-end small">Tax/Service (%):</div>
-                            <div class="col-6"><input type="number" id="receiptTax" class="form-control form-control-sm" value="0" oninput="app.calculateReceiptTotal()"></div>
-                        </div>
+                        <div class="row mt-3 align-items-center"><div class="col-6 text-end small">Tax/Service (%):</div><div class="col-6"><input type="number" id="receiptTax" class="form-control form-control-sm" value="0" oninput="app.calculateReceiptTotal()"></div></div>
                         <h4 class="text-end fw-bold mt-3 text-primary" id="receiptGrandTotal">Total: RM 0.00</h4>
                     </div>
                 </div>
@@ -306,19 +288,9 @@
     <div class="modal fade" id="payModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="payModalTitle">Pay</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body text-center">
-                    <h2 class="text-success fw-bold my-3" id="payTotalDisplay">RM 0.00</h2>
-                    <div id="payQrDisplay" class="mb-3"></div>
-                    <p class="text-muted small">Scan to pay.</p>
-                </div>
-                <div class="modal-footer flex-column">
-                    <button type="button" class="btn btn-success w-100 mb-2" id="btnWhatsappPay"><i class="fa-brands fa-whatsapp me-2"></i>Send "Dah Bayar"</button>
-                    <button type="button" class="btn btn-light w-100" data-bs-dismiss="modal">Close</button>
-                </div>
+                <div class="modal-header"><h5 class="modal-title" id="payModalTitle">Pay</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body text-center"><h2 class="text-success fw-bold my-3" id="payTotalDisplay">RM 0.00</h2><div id="payQrDisplay" class="mb-3"></div><p class="text-muted small">Scan to pay.</p></div>
+                <div class="modal-footer flex-column"><button type="button" class="btn btn-success w-100 mb-2" id="btnWhatsappPay"><i class="fa-brands fa-whatsapp me-2"></i>Send "Dah Bayar"</button><button type="button" class="btn btn-light w-100" data-bs-dismiss="modal">Close</button></div>
             </div>
         </div>
     </div>
@@ -327,17 +299,11 @@
         <div class="modal-dialog modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header"><h5 class="modal-title">Receipt Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body">
-                    <h5 id="detailTitle" class="fw-bold"></h5><p class="text-muted small" id="detailDate"></p><hr>
-                    <div id="detailItemsList"></div><hr>
-                    <div class="d-flex justify-content-between fw-bold"><span>Total Bill:</span><span id="detailTotalBill"></span></div>
-                    <div class="alert alert-info mt-3"><small>Your Share:</small><h4 class="fw-bold m-0" id="detailMyShare">RM 0.00</h4></div>
-                </div>
+                <div class="modal-body"><h5 id="detailTitle" class="fw-bold"></h5><p class="text-muted small" id="detailDate"></p><hr><div id="detailItemsList"></div><hr><div class="d-flex justify-content-between fw-bold"><span>Total Bill:</span><span id="detailTotalBill"></span></div><div class="alert alert-info mt-3"><small>Your Share:</small><h4 class="fw-bold m-0" id="detailMyShare">RM 0.00</h4></div></div>
                 <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
             </div>
         </div>
     </div>
-
 
     <script>
         const firebaseConfig = {
@@ -356,23 +322,14 @@
             
             class HutangApp {
                 constructor() {
-                    this.state = { 
-                        user: null, 
-                        allUsers: [], 
-                        isLocked: false, 
-                        appMode: 'classic', // 'classic' or 'receipt'
-                        tempItems: [],
-                        editingClaimId: null,
-                        currentReceiptSession: null, // For Receipt Mode
-                        selectedReceiptItems: [] // For Receipt Mode
-                    };
+                    this.state = { user: null, allUsers: [], isLocked: false, appMode: 'classic', tempItems: [], editingClaimId: null, currentReceiptSession: null, selectedReceiptItems: [] };
                     this.init();
                 }
 
                 init() {
                     this.listenToSettings();
                     this.listenToUsers();
-                    this.listenToReceipts(); // For Receipt Mode real-time updates
+                    this.listenToReceipts(); 
                 }
 
                 showView(viewId) {
@@ -383,26 +340,25 @@
                     else logoutBtn.classList.remove('d-none');
                 }
 
-                // --- DATA LISTENERS ---
                 listenToSettings() {
                     db.collection("app_settings").onSnapshot((snap) => {
-                        if (snap.empty) {
-                            db.collection("app_settings").add({ isLocked: false, appMode: 'classic' });
-                        } else {
+                        if (snap.empty) { db.collection("app_settings").add({ isLocked: false, appMode: 'classic' }); } 
+                        else {
                             const data = snap.docs[0].data();
                             this.state.isLocked = data.isLocked;
                             this.state.appMode = data.appMode || 'classic';
                             this.settingsDocId = snap.docs[0].id;
                             
-                            // Update Admin UI
                             document.getElementById('appLockSwitch').checked = this.state.isLocked;
-                            if(this.state.appMode === 'receipt') document.getElementById('modeReceipt').checked = true;
-                            else document.getElementById('modeClassic').checked = true;
-
-                            // Update User UI (If logged in)
-                            if(this.state.user) {
-                                this.routeUser();
+                            if(this.state.appMode === 'receipt') {
+                                document.getElementById('modeReceipt').checked = true;
+                                document.getElementById('manualLoginArea').classList.remove('d-none');
+                            } else {
+                                document.getElementById('modeClassic').checked = true;
+                                document.getElementById('manualLoginArea').classList.add('d-none');
                             }
+
+                            if(this.state.user) this.routeUser();
                         }
                     });
                 }
@@ -412,7 +368,7 @@
                         this.state.allUsers = [];
                         const list = document.getElementById('adminUserList');
                         const select = document.getElementById('loginUserSelect');
-                        const rSelect = document.getElementById('usNameSelect'); // Receipt Mode Select
+                        const rSelect = document.getElementById('usNameSelect'); 
 
                         list.innerHTML = '';
                         select.innerHTML = '<option value="">Select your name...</option>';
@@ -430,41 +386,38 @@
                 }
 
                 listenToReceipts() {
-                    // Listen to receipt_sessions for admin and user updates
                     db.collection("receipt_sessions").onSnapshot(snap => {
                         const adminList = document.getElementById('adminReceiptList');
                         const userList = document.getElementById('activeReceiptsList');
                         adminList.innerHTML = '';
                         userList.innerHTML = '';
-
                         snap.forEach(doc => {
                             const r = { id: doc.id, ...doc.data() };
-                            
-                            // Admin List
-                            adminList.innerHTML += `
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div><strong>${r.name}</strong> <br> <small>${r.date}</small></div>
-                                    <button class="btn btn-sm btn-danger" onclick="app.deleteReceiptSession('${r.id}')">Delete</button>
-                                </li>
-                            `;
-
-                            // User List (Only in receipt mode)
-                            userList.innerHTML += `
-                                <div class="card shadow-sm receipt-card p-3 mb-2" onclick="app.openUserReceiptSelect('${r.id}')" style="cursor:pointer">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <h5 class="fw-bold mb-0">${r.name}</h5>
-                                            <small class="text-muted">${r.date}</small>
-                                        </div>
-                                        <i class="fa-solid fa-chevron-right text-muted"></i>
-                                    </div>
-                                </div>
-                            `;
+                            adminList.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center"><div><strong>${r.name}</strong> <br> <small>${r.date}</small></div><button class="btn btn-sm btn-danger" onclick="app.deleteReceiptSession('${r.id}')">Delete</button></li>`;
+                            userList.innerHTML += `<div class="card shadow-sm receipt-card p-3 mb-2" onclick="app.openUserReceiptSelect('${r.id}')" style="cursor:pointer"><div class="d-flex justify-content-between align-items-center"><div><h5 class="fw-bold mb-0">${r.name}</h5><small class="text-muted">${r.date}</small></div><i class="fa-solid fa-chevron-right text-muted"></i></div></div>`;
                         });
                     });
                 }
 
-                // --- AUTH & NAVIGATION ---
+                joinAsNewUser() {
+                    const name = document.getElementById('manualNameInput').value.trim();
+                    if(!name) return alert("Please type a name.");
+                    
+                    const existing = this.state.allUsers.find(u => u.name.toLowerCase() === name.toLowerCase());
+                    if(existing) {
+                        if(confirm(`"${existing.name}" already exists. Log in as them?`)) {
+                            this.state.user = existing;
+                            this.routeUser();
+                        }
+                        return;
+                    }
+
+                    db.collection("users").add({ name: name, phone: "", qrImage: "" }).then(docRef => {
+                        this.state.user = { id: docRef.id, name: name, phone: "", qrImage: "" };
+                        this.routeUser();
+                    });
+                }
+
                 login() {
                     const uid = document.getElementById('loginUserSelect').value;
                     if(!uid) return alert("Select name");
@@ -484,8 +437,6 @@
                 }
 
                 logout() { this.state.user = null; this.showView('view-login'); }
-
-                // --- ADMIN FUNCTIONS ---
                 showAdminAuth() { if(prompt("Password:") === "admin123") this.showView('view-admin'); else alert("Wrong"); }
                 
                 addUser() {
@@ -503,16 +454,13 @@
                 
                 changeAppMode(mode) {
                     db.collection("app_settings").doc(this.settingsDocId).update({ appMode: mode });
-                    if(mode === 'receipt') {
-                        document.getElementById('adminReceiptArea').classList.remove('d-none');
-                    } else {
-                        document.getElementById('adminReceiptArea').classList.add('d-none');
-                    }
+                    if(mode === 'receipt') document.getElementById('adminReceiptArea').classList.remove('d-none');
+                    else document.getElementById('adminReceiptArea').classList.add('d-none');
                 }
 
                 showLogin() { this.showView('view-login'); }
 
-                // --- RECEIPT MODE: ADMIN IMPORTER ---
+                // --- RECEIPT IMPORTER ---
                 showImportModal() {
                     document.getElementById('importText').value = '';
                     document.getElementById('receiptQrInput').value = '';
@@ -522,58 +470,41 @@
                 processImport() {
                     const text = document.getElementById('importText').value;
                     const lines = text.split('\n').map(l => l.trim()).filter(l => l !== '');
-                    
                     if(lines.length < 4) return alert("Invalid format. Need at least 4 lines.");
-
                     const name = lines[0];
                     const date = lines[1];
                     const tax = parseFloat(lines[2]) || 0;
-                    
                     let items = [];
                     for(let i=3; i<lines.length; i++) {
                         const parts = lines[i].split(',');
                         if(parts.length >= 2) {
                             const iName = parts[0].trim();
-                            const iPrice = parseFloat(parts[parts.length-1]); // Assume last part is price
+                            const iPrice = parseFloat(parts[parts.length-1]); 
                             if(!isNaN(iPrice)) {
-                                items.push({
-                                    id: Date.now() + i, // simple unique
-                                    name: iName,
-                                    price: iPrice,
-                                    claimedBy: [] // Array of user IDs
-                                });
+                                items.push({ id: Date.now() + i, name: iName, price: iPrice, claimedBy: [] });
                             }
                         }
                     }
-
-                    // Handle QR Upload
                     const file = document.getElementById('receiptQrInput').files[0];
                     const saveSession = (qrBase64) => {
                          db.collection("receipt_sessions").add({
                             name, date, taxPercent: tax, items, sessionQr: qrBase64 || null
-                        }).then(() => {
-                            bootstrap.Modal.getInstance(document.getElementById('importReceiptModal')).hide();
-                        });
+                        }).then(() => { bootstrap.Modal.getInstance(document.getElementById('importReceiptModal')).hide(); });
                     };
-
                     if(file) {
                         const reader = new FileReader();
                         reader.onload = (e) => saveSession(e.target.result);
                         reader.readAsDataURL(file);
-                    } else {
-                        saveSession(null);
-                    }
+                    } else { saveSession(null); }
                 }
 
-                deleteReceiptSession(id) {
-                    if(confirm("Delete this receipt session?")) db.collection("receipt_sessions").doc(id).delete();
-                }
+                deleteReceiptSession(id) { if(confirm("Delete this receipt session?")) db.collection("receipt_sessions").doc(id).delete(); }
 
-                // --- RECEIPT MODE: USER SELECTION ---
+                // --- USER RECEIPT SELECTION ---
                 openUserReceiptSelect(rid) {
                     db.collection("receipt_sessions").doc(rid).get().then(doc => {
                         this.state.currentReceiptSession = { id: doc.id, ...doc.data() };
-                        this.state.selectedReceiptItems = []; // Reset user selection
+                        this.state.selectedReceiptItems = []; 
                         this.renderReceiptSessionModal();
                         new bootstrap.Modal(document.getElementById('userSelectModal')).show();
                     });
@@ -584,111 +515,64 @@
                     document.getElementById('userSelectTitle').innerText = r.name;
                     const list = document.getElementById('userSelectItemsList');
                     list.innerHTML = '';
-
                     r.items.forEach((item, index) => {
-                        // Check if I am selected
                         const isSelected = this.state.selectedReceiptItems.includes(index);
                         const selectClass = isSelected ? 'selected' : '';
-                        
-                        // Show claims
                         const claimTags = item.claimedBy.map(uid => {
                             const u = this.state.allUsers.find(x => x.id === uid);
                             return u ? `<span class="badge bg-secondary me-1" style="font-size:0.6rem">${u.name}</span>` : '';
                         }).join('');
-
-                        list.innerHTML += `
-                            <a href="#" class="list-group-item list-group-item-action item-row ${selectClass}" onclick="app.toggleReceiptItem(${index})">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <div class="fw-bold">${item.name}</div>
-                                        <div>${claimTags}</div>
-                                    </div>
-                                    <div class="fw-bold">RM ${item.price.toFixed(2)}</div>
-                                </div>
-                            </a>
-                        `;
+                        list.innerHTML += `<a href="#" class="list-group-item list-group-item-action item-row ${selectClass}" onclick="app.toggleReceiptItem(${index})"><div class="d-flex justify-content-between align-items-center"><div><div class="fw-bold">${item.name}</div><div>${claimTags}</div></div><div class="fw-bold">RM ${item.price.toFixed(2)}</div></div></a>`;
                     });
                     this.calculateUserReceiptTotal();
                 }
 
                 toggleReceiptItem(index) {
-                    if(this.state.selectedReceiptItems.includes(index)) {
-                        this.state.selectedReceiptItems = this.state.selectedReceiptItems.filter(i => i !== index);
-                    } else {
-                        this.state.selectedReceiptItems.push(index);
-                    }
-                    this.renderReceiptSessionModal(); // Re-render to show selection
+                    if(this.state.selectedReceiptItems.includes(index)) this.state.selectedReceiptItems = this.state.selectedReceiptItems.filter(i => i !== index);
+                    else this.state.selectedReceiptItems.push(index);
+                    this.renderReceiptSessionModal(); 
                 }
 
                 calculateUserReceiptTotal() {
                     const r = this.state.currentReceiptSession;
                     let subtotal = 0;
-
                     this.state.selectedReceiptItems.forEach(idx => {
                         const item = r.items[idx];
-                        // If I claim it, I join the existing claimants + me
-                        // Price is split by (existing claimants + 1)
-                        // BUT, to be simple for "confirming its their item", we assume real-time.
-                        // Logic: Price / (Currently Claimed Count + 1 [Me])
-                        // Note: If I already claimed it (in DB), don't add +1, just use count.
-                        
                         const alreadyClaimedByMe = item.claimedBy.includes(this.state.user.id);
                         const count = item.claimedBy.length + (alreadyClaimedByMe ? 0 : 1); 
-                        
                         subtotal += (item.price / count);
                     });
-
                     const taxAmt = subtotal * (r.taxPercent / 100);
                     const total = subtotal + taxAmt;
-
                     document.getElementById('usSubtotal').innerText = `RM ${subtotal.toFixed(2)}`;
                     document.getElementById('usTaxPct').innerText = r.taxPercent;
                     document.getElementById('usTaxAmt').innerText = `RM ${taxAmt.toFixed(2)}`;
                     document.getElementById('usTotal').innerText = `RM ${total.toFixed(2)}`;
-                    
-                    // Auto-select current user
                     document.getElementById('usNameSelect').value = this.state.user.id;
                 }
 
                 confirmSelection() {
                     const r = this.state.currentReceiptSession;
                     const uid = document.getElementById('usNameSelect').value;
-                    
                     if(!uid) return alert("Select Name");
                     if(this.state.selectedReceiptItems.length === 0) return alert("Select at least 1 item");
-
-                    // Update DB items
                     let newItems = [...r.items];
                     this.state.selectedReceiptItems.forEach(idx => {
-                        if(!newItems[idx].claimedBy.includes(uid)) {
-                            newItems[idx].claimedBy.push(uid);
-                        }
+                        if(!newItems[idx].claimedBy.includes(uid)) newItems[idx].claimedBy.push(uid);
                     });
-
                     db.collection("receipt_sessions").doc(r.id).update({ items: newItems }).then(() => {
                         bootstrap.Modal.getInstance(document.getElementById('userSelectModal')).hide();
-                        
-                        // Show Pay Modal
-                        const totalStr = document.getElementById('usTotal').innerText; // Grab calculated total
+                        const totalStr = document.getElementById('usTotal').innerText; 
                         document.getElementById('payTotalDisplay').innerText = totalStr;
-                        
                         const qrDiv = document.getElementById('payQrDisplay');
-                        if(r.sessionQr) {
-                             qrDiv.innerHTML = `<img src="${r.sessionQr}" class="qr-preview">`;
-                        } else {
-                            // Try to find Admin (creator)?? For now, find first admin user or just show "Ask Admin"
-                             qrDiv.innerHTML = `<div class="alert alert-warning">No Receipt QR set. Pay to Host directly.</div>`;
-                        }
-
-                        // We can't link to whatsapp specific number easily here unless we store Host Phone. 
-                        // For now just show QR.
-                        document.getElementById('btnWhatsappPay').style.display = 'none'; // Hide generic whatsapp for receipt mode
+                        if(r.sessionQr) qrDiv.innerHTML = `<img src="${r.sessionQr}" class="qr-preview">`;
+                        else qrDiv.innerHTML = `<div class="alert alert-warning">No Receipt QR set. Pay to Host directly.</div>`;
+                        document.getElementById('btnWhatsappPay').style.display = 'none'; 
                         new bootstrap.Modal(document.getElementById('payModal')).show();
                     });
                 }
 
-                // --- CLASSIC MODE FUNCTIONS (Kept from previous) ---
-                // [These functions are identical to previous version, ensuring Classic Mode works]
+                // --- CLASSIC MODE ---
                 renderProfileQR() {
                     const div = document.getElementById('profileQrArea');
                     if(this.state.user.qrImage) div.innerHTML = `<img src="${this.state.user.qrImage}" class="qr-preview mb-2"><br><small class="text-success">QR Active</small>`;
@@ -717,7 +601,7 @@
                     });
                     if (existingClaimJson) {
                         const data = JSON.parse(decodeURIComponent(existingClaimJson));
-                        this.state.editingClaimId = data.id; 
+                        this.state.editingClaimId = data.id; 
                         document.getElementById('receiptModalTitle').innerText = "Edit Receipt";
                         document.getElementById('btnSaveClaim').innerText = "Update";
                         document.getElementById('btnDeleteClaim').classList.remove('d-none');
@@ -817,7 +701,7 @@
                     const handleSuccess = () => {
                         bootstrap.Modal.getInstance(document.getElementById('receiptModal')).hide();
                         this.loadMyClaims();
-                        this.showView('view-minta'); 
+                        this.showView('view-minta'); 
                     };
                     if(this.state.editingClaimId) {
                         db.collection("claims").doc(this.state.editingClaimId).update(payload).then(handleSuccess).catch(e => alert(e.message));
@@ -843,7 +727,7 @@
                         else {
                             document.getElementById('noClaimsMsg').style.display = 'none';
                             let docs = [];
-                            snap.forEach(d => docs.push({ id: d.id, ...d.data() })); 
+                            snap.forEach(d => docs.push({ id: d.id, ...d.data() })); 
                             docs.sort((a, b) => new Date(b.date) - new Date(a.date));
                             docs.forEach(d => {
                                 const json = encodeURIComponent(JSON.stringify(d));
